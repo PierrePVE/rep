@@ -9,4 +9,13 @@ export default defineNuxtConfig({
     databaseUrl: '',
   },
   compatibilityDate: '2025-07-15',
+  typescript: {
+    // Root-level tooling files (drizzle-kit config) run in plain Node, outside
+    // Nuxt. Without this they belong to no tsconfig, so the editor reports
+    // "Cannot find name 'process'" and `nuxi typecheck` silently skips them.
+    nodeTsConfig: {
+      include: ['../drizzle.config.ts'],
+      compilerOptions: { types: ['node'] },
+    },
+  },
 })
