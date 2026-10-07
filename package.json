@@ -17,6 +17,7 @@
     "db:seed": "tsx server/db/seed.ts"
   },
   "dependencies": {
+    "@iconify-json/lucide": "^1.2.141",
     "@neondatabase/serverless": "^1.2.0",
     "@nuxt/ui": "^4.11.3",
     "@vite-pwa/nuxt": "^1.1.1",

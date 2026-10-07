@@ -2,6 +2,19 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@nuxt/eslint', 'nuxt-auth-utils', '@vite-pwa/nuxt'],
   devtools: { enabled: true },
+  app: {
+    head: {
+      htmlAttrs: { lang: 'fr' },
+      // Each page sets its title with useHead(), rendered as "Accueil | Rep".
+      // Must be a string here: nuxt.config is serialized, so no functions.
+      titleTemplate: '%s | Rep',
+      meta: [
+        // viewport-fit=cover lets the page extend under the iPhone notch and
+        // home indicator, which is what makes env(safe-area-inset-*) non-zero.
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+      ],
+    },
+  },
   css: ['~/assets/css/main.css'],
   // Server-only values. Each key is overridden at runtime by its NUXT_* env
   // variable (databaseUrl <- NUXT_DATABASE_URL), so no secret lives in code.
