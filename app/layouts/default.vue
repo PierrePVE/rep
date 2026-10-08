@@ -1,8 +1,29 @@
 <!--
-  Default layout: page content plus a fixed bottom tab bar, mobile-app style.
-  Every page renders inside <slot />.
+  Default layout: a top bar with the account menu, the page content, and a
+  fixed bottom tab bar, mobile-app style. Every page renders inside <slot />.
 -->
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
+
+const { user, clear } = useUserSession()
+
+/** Logs out (the server-side hook also deletes the DB session) and leaves. */
+async function logout() {
+  await clear()
+  await navigateTo('/login')
+}
+
+/** Account menu: who is logged in, admin link for the admin, logout. */
+const accountItems = computed<DropdownMenuItem[][]>(() => [
+  [{ label: user.value?.email ?? '', type: 'label' }],
+  [
+    ...(user.value?.role === 'admin'
+      ? [{ label: 'Administration', icon: 'i-lucide-shield', to: '/admin' }]
+      : []),
+    { label: 'Se déconnecter', icon: 'i-lucide-log-out', onSelect: logout },
+  ],
+])
+
 /** One entry of the bottom tab bar. */
 interface Tab {
   /** Route the tab links to. */
@@ -40,6 +61,22 @@ const activeTab = computed(() => {
 
 <template>
   <div class="min-h-dvh bg-default">
+    <!-- Top padding = iPhone notch area (viewport-fit=cover lets the page go under it). -->
+    <header class="sticky top-0 z-10 border-b border-default bg-default/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+      <div class="mx-auto flex h-12 max-w-2xl items-center justify-between px-4">
+        <div class="flex items-center gap-2">
+          <span class="font-bold">Rep</span>
+          <!-- Tells portfolio visitors they are on the shared demo account. -->
+          <UBadge v-if="user?.role === 'demo'" color="warning" variant="subtle" size="sm">
+            Démo
+          </UBadge>
+        </div>
+        <UDropdownMenu :items="accountItems" :content="{ align: 'end' }">
+          <UButton color="neutral" variant="ghost" icon="i-lucide-circle-user" aria-label="Mon compte" />
+        </UDropdownMenu>
+      </div>
+    </header>
+
     <!-- Bottom padding = bar height + iPhone home-indicator area, so the end
          of the page never hides behind the fixed bar. -->
     <main class="mx-auto max-w-2xl px-4 pt-4 pb-[calc(4rem+env(safe-area-inset-bottom))]">
