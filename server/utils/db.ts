@@ -33,3 +33,21 @@ export function useDb(): Db {
   }
   return db
 }
+
+/**
+ * Tells whether a query failed because of a unique constraint (Postgres error
+ * 23505), e.g. inserting an email that already has an account.
+ * Drizzle wraps driver errors, so the Postgres error may be one or several
+ * levels down the `cause` chain.
+ *
+ * @param error - Error thrown by a query.
+ * @returns True for a unique violation.
+ */
+export function isUniqueViolation(error: unknown): boolean {
+  let current: unknown = error
+  while (current instanceof Error) {
+    if ('code' in current && current.code === '23505') return true
+    current = current.cause
+  }
+  return false
+}
