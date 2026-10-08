@@ -20,6 +20,14 @@ export default defineNuxtConfig({
   // variable (databaseUrl <- NUXT_DATABASE_URL), so no secret lives in code.
   runtimeConfig: {
     databaseUrl: '',
+    // nuxt-auth-utils cookie. Without maxAge it would be a browser-session
+    // cookie, dropped when the browser (or the installed PWA) is closed.
+    // 30 days = SESSION_DURATION_MS in server/utils/session.ts.
+    session: {
+      // Required by the type; the real value comes from NUXT_SESSION_PASSWORD.
+      password: '',
+      maxAge: 60 * 60 * 24 * 30,
+    },
   },
   compatibilityDate: '2025-07-15',
   typescript: {
