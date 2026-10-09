@@ -6,8 +6,12 @@
  *   users 1───* sessions
  *     │
  *     ├──1───* exercises 1───* workout_exercises *───1 workouts *───1 users
- *                                     │
- *                                     1───* sets
+ *     │                               │                  *
+ *     │                               1───* sets         │ (optional)
+ *     │                                                  1
+ *     └──1───* programs 1───* program_days ──────────────┘
+ *                                  │
+ *                                  1───* program_exercises *───1 exercises
  *
  * - `users`             : accounts (email + password), with a role (user / admin / demo).
  * - `sessions`          : server-side login sessions, one row per logged-in device.
@@ -17,11 +21,16 @@
  *                         It is the join table between workouts and exercises,
  *                         plus its own data (position, notes).
  * - `sets`              : one set (weight x reps) attached to a workout_exercise.
+ * - `programs`          : a training program (e.g. "PPL"), one active per user.
+ * - `program_days`      : one session of a program (e.g. "Push A"), in rotation order.
+ * - `program_exercises` : a planned exercise of a day, with its targets (sets, reps...).
  *
- * Ownership: only `exercises` and `workouts` carry a `userId`. Workout exercises
- * and sets belong to a user through their workout, so the API must always reach
- * them via a workout filtered on the current user. The DB does not prevent a
- * workout from referencing another user's exercise: the API checks it.
+ * Ownership: only `exercises`, `workouts` and `programs` carry a `userId`.
+ * Workout exercises and sets belong to a user through their workout, program
+ * days and program exercises through their program, so the API must always
+ * reach them via a parent filtered on the current user. The DB does not prevent
+ * a workout or a program from referencing another user's exercise: the API
+ * checks it.
  *
  * Keys are written in camelCase here; `casing: 'snake_case'` (drizzle.config.ts
  * and useDb()) turns them into snake_case columns (startedAt -> started_at).
@@ -158,10 +167,78 @@ export const exercises = pgTable('exercises', {
   uniqueIndex('exercises_user_name_uq').on(t.userId, t.name),
 ])
 
+/**
+ * A training program (e.g. "PPL 6 days"), made of several session days.
+ * A user may keep several programs (old ones, alternatives), but only one is
+ * active: it is the one the home page proposes to start from.
+ */
+export const programs = pgTable('programs', {
+  id: serial().primaryKey(),
+  userId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text().notNull(),
+  active: boolean().notNull().default(false),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  // Also serves "list my programs" (it starts with user_id).
+  uniqueIndex('programs_user_name_uq').on(t.userId, t.name),
+  // At most ONE active program per user, same partial-index trick as
+  // `workouts_one_in_progress_uq`.
+  uniqueIndex('programs_one_active_uq').on(t.userId).where(sql`active`),
+])
+
+/**
+ * One session of a program (e.g. "Push A"). Days follow a rotation in
+ * `position` order (Push -> Pull -> Legs -> Push...) rather than fixed
+ * weekdays, so a missed day just shifts the rotation instead of being skipped.
+ * Ownership goes through the program, like workout exercises through workouts.
+ */
+export const programDays = pgTable('program_days', {
+  id: serial().primaryKey(),
+  programId: integer().notNull().references(() => programs.id, { onDelete: 'cascade' }),
+  name: text().notNull(),
+  position: integer().notNull(), // order in the rotation (0, 1, 2...)
+}, t => [
+  index('program_days_program_idx').on(t.programId),
+])
+
+/**
+ * A planned exercise of a program day, with its targets. Targets are per
+ * exercise, not per set ("4 x 6-8"): enough for nearly every program and much
+ * quicker to enter on a phone.
+ */
+export const programExercises = pgTable('program_exercises', {
+  id: serial().primaryKey(),
+  programDayId: integer().notNull().references(() => programDays.id, { onDelete: 'cascade' }),
+  // 'no action' for the same reason as workout_exercises.exerciseId: exercises
+  // are archived, not deleted, and a user deletion cascades through both paths.
+  exerciseId: integer().notNull().references(() => exercises.id, { onDelete: 'no action' }),
+  position: integer().notNull(), // order inside the day (0, 1, 2...)
+  targetSets: integer().notNull(),
+  // A rep range as two integers rather than a "8-12" string, so the app can
+  // later suggest a heavier load once repMax is reached on every set.
+  // Fixed reps: repMin = repMax.
+  repMin: integer().notNull(),
+  repMax: integer().notNull(),
+  targetRpe: numeric({ precision: 3, scale: 1, mode: 'number' }), // optional
+  restSeconds: integer(), // optional, for the future rest timer
+  notes: text(),
+}, t => [
+  index('pe_day_idx').on(t.programDayId),
+  index('pe_exercise_idx').on(t.exerciseId),
+  check('pe_sets_ck', sql`target_sets BETWEEN 1 AND 20`),
+  check('pe_reps_ck', sql`rep_min BETWEEN 1 AND 100 AND rep_max BETWEEN rep_min AND 100`),
+  // Same rule as sets.rpe: 1-10 by steps of 0.5.
+  check('pe_rpe_ck', sql`target_rpe IS NULL OR (target_rpe BETWEEN 1 AND 10 AND target_rpe * 2 = trunc(target_rpe * 2))`),
+  check('pe_rest_ck', sql`rest_seconds IS NULL OR rest_seconds BETWEEN 0 AND 3600`),
+])
+
 /** A gym session. `endedAt = null` means the session is still in progress. */
 export const workouts = pgTable('workouts', {
   id: serial().primaryKey(),
   userId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // The program day this session was started from, if any. 'set null' so that
+  // deleting or reworking a program never erases the training history.
+  programDayId: integer().references(() => programDays.id, { onDelete: 'set null' }),
   name: text(), // optional label, e.g. "Push A"
   startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   endedAt: timestamp({ withTimezone: true }),
@@ -233,6 +310,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   exercises: many(exercises),
   workouts: many(workouts),
+  programs: many(programs),
 }))
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -242,10 +320,28 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 export const exercisesRelations = relations(exercises, ({ one, many }) => ({
   user: one(users, { fields: [exercises.userId], references: [users.id] }),
   workoutExercises: many(workoutExercises),
+  programExercises: many(programExercises),
+}))
+
+export const programsRelations = relations(programs, ({ one, many }) => ({
+  user: one(users, { fields: [programs.userId], references: [users.id] }),
+  days: many(programDays),
+}))
+
+export const programDaysRelations = relations(programDays, ({ one, many }) => ({
+  program: one(programs, { fields: [programDays.programId], references: [programs.id] }),
+  exercises: many(programExercises),
+  workouts: many(workouts),
+}))
+
+export const programExercisesRelations = relations(programExercises, ({ one }) => ({
+  day: one(programDays, { fields: [programExercises.programDayId], references: [programDays.id] }),
+  exercise: one(exercises, { fields: [programExercises.exerciseId], references: [exercises.id] }),
 }))
 
 export const workoutsRelations = relations(workouts, ({ one, many }) => ({
   user: one(users, { fields: [workouts.userId], references: [users.id] }),
+  programDay: one(programDays, { fields: [workouts.programDayId], references: [programDays.id] }),
   exercises: many(workoutExercises),
 }))
 
@@ -275,6 +371,12 @@ export type Session = typeof sessions.$inferSelect
 export type NewSession = typeof sessions.$inferInsert
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
+export type Program = typeof programs.$inferSelect
+export type NewProgram = typeof programs.$inferInsert
+export type ProgramDay = typeof programDays.$inferSelect
+export type NewProgramDay = typeof programDays.$inferInsert
+export type ProgramExercise = typeof programExercises.$inferSelect
+export type NewProgramExercise = typeof programExercises.$inferInsert
 export type Workout = typeof workouts.$inferSelect
 export type NewWorkout = typeof workouts.$inferInsert
 export type WorkoutExercise = typeof workoutExercises.$inferSelect
