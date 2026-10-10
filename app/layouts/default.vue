@@ -38,7 +38,7 @@ const tabs: Tab[] = [
   { to: '/', label: 'Accueil', icon: 'i-lucide-house' },
   { to: '/workouts/current', label: 'Séance', icon: 'i-lucide-dumbbell' },
   { to: '/workouts', label: 'Historique', icon: 'i-lucide-calendar-days' },
-  { to: '/exercises', label: 'Exercices', icon: 'i-lucide-list' },
+  { to: '/programs', label: 'Programme', icon: 'i-lucide-list' },
 ]
 
 const route = useRoute()
