@@ -3,8 +3,6 @@
   exercises, and lets the user rename, activate or delete it.
 -->
 <script setup lang="ts">
-import type { FormSubmitEvent } from '@nuxt/ui'
-
 const route = useRoute()
 // Kept as a string: the API validates it and answers 400 / 404 on a bad id,
 // which ends up in the "not found" state below.
@@ -14,41 +12,17 @@ const { data: program, error, refresh } = await useFetch(`/api/programs/${id}`)
 
 useHead({ title: () => program.value?.name ?? 'Programme' })
 
-// Rename modal. The error is shown inline (as in the creation modal), since
-// the usual failure is a duplicate name the user fixes in the same form.
 const renameOpen = ref(false)
-const renameState = reactive({ name: '' })
-const renaming = ref(false)
-const renameError = ref<string | null>(null)
-
-// Prefill with the current name each time the modal opens, so an edit that
-// was cancelled does not come back.
-watch(renameOpen, (open) => {
-  if (!open) return
-  renameState.name = program.value?.name ?? ''
-  renameError.value = null
-})
 
 /**
- * Renames the program, then closes the modal and reloads the page data.
+ * Renames the program, then reloads the page data. Errors propagate to
+ * NameModal, which shows them inline (usually a duplicate name, 409).
  *
- * @param event - Form submit event; `event.data` is the Zod-parsed output
- *   (name already trimmed).
+ * @param name - Trimmed new name.
  */
-async function onRename(event: FormSubmitEvent<ProgramInput>) {
-  renaming.value = true
-  renameError.value = null
-  try {
-    await $fetch(`/api/programs/${id}`, { method: 'PATCH', body: event.data })
-    renameOpen.value = false
-    await refresh()
-  }
-  catch (e) {
-    renameError.value = apiErrorMessage(e)
-  }
-  finally {
-    renaming.value = false
-  }
+async function renameProgram(name: string) {
+  await $fetch(`/api/programs/${id}`, { method: 'PATCH', body: { name } })
+  await refresh()
 }
 
 // One useAction per button, so each one gets its own spinner.
@@ -191,23 +165,15 @@ async function onDeleteDay(dayId: number) {
           Activer
         </UButton>
 
-        <!-- The title is required: without it the dialog has no accessible name. -->
-        <UModal v-model:open="renameOpen" title="Renommer le programme">
+        <NameModal
+          v-model:open="renameOpen"
+          title="Renommer le programme"
+          submit-label="Enregistrer"
+          :initial-name="program.name"
+          :save="renameProgram"
+        >
           <UButton label="Renommer" icon="i-lucide-pencil" color="neutral" variant="subtle" />
-
-          <template #body>
-            <UForm :schema="programSchema" :state="renameState" class="space-y-4" @submit="onRename">
-              <UAlert v-if="renameError" color="error" variant="subtle" icon="i-lucide-circle-alert" :title="renameError" />
-              <UFormField label="Nom" name="name">
-                <UInput v-model="renameState.name" autofocus class="w-full" />
-              </UFormField>
-              <!-- Inside the form (not in the modal footer) so Enter submits it. -->
-              <UButton type="submit" block :loading="renaming">
-                Enregistrer
-              </UButton>
-            </UForm>
-          </template>
-        </UModal>
+        </NameModal>
 
         <UButton
           :color="deleteArmed ? 'error' : 'neutral'"
