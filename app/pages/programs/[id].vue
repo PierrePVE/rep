@@ -68,6 +68,11 @@ async function onActivate() {
 // the button, the second one deletes.
 const deleteArmed = ref(false)
 
+// Same rule as the DELETE route, checked here to disable the button up front
+// rather than let the user hit a 409: the active program stays as long as
+// other programs exist, since one of them must always be active.
+const deleteBlocked = computed(() => !!program.value?.active && program.value.otherPrograms > 0)
+
 /** Handles a click on the delete button, then goes back to the list. */
 async function onDelete() {
   if (!deleteArmed.value) {
@@ -138,11 +143,18 @@ async function onDelete() {
           :variant="deleteArmed ? 'solid' : 'subtle'"
           icon="i-lucide-trash-2"
           :loading="deleting"
+          :disabled="deleteBlocked"
           @click="onDelete"
         >
           {{ deleteArmed ? 'Confirmer la suppression' : 'Supprimer' }}
         </UButton>
       </div>
+
+      <!-- Says why the delete button is disabled: a greyed-out button alone
+           does not tell the user what to do. -->
+      <p v-if="deleteBlocked" class="text-sm text-muted">
+        Activez un autre programme pour pouvoir supprimer celui-ci.
+      </p>
 
       <h2 class="pt-2 text-lg font-semibold">
         Séances
