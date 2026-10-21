@@ -5,7 +5,7 @@ import type { FormSubmitEvent } from '@nuxt/ui'
 useHead({ title: 'Programmes' })
 
 const toast = useToast()
-const { data: programs, status, refresh } = await useFetch('/api/programs')
+const { data: programs, status } = await useFetch('/api/programs')
 
 // Creation modal: only the name is asked, since that is all POST /api/programs
 // takes. Days and exercises are added afterwards, one by one, in the editor.
@@ -23,7 +23,7 @@ watch(createOpen, (open) => {
 })
 
 /**
- * Creates the program, then closes the modal and reloads the list.
+ * Creates the program, then closes the modal and opens the new program.
  *
  * @param event - Form submit event; `event.data` is the Zod-parsed output
  *   (name already trimmed).
@@ -32,10 +32,12 @@ async function onCreate(event: FormSubmitEvent<ProgramInput>) {
   creating.value = true
   createError.value = null
   try {
-    await $fetch('/api/programs', { method: 'POST', body: event.data })
+    const { program } = await $fetch('/api/programs', { method: 'POST', body: event.data })
     createOpen.value = false
     toast.add({ title: 'Programme créé', color: 'success' })
-    await refresh()
+    // Straight to the new program's page: an empty program is useless until
+    // its days are added there.
+    await navigateTo(`/programs/${program.id}`)
   }
   catch (e) {
     // Shown inside the modal rather than as a toast: the usual failure is a
@@ -63,13 +65,17 @@ async function onCreate(event: FormSubmitEvent<ProgramInput>) {
     </p>
 
     <ul v-else class="divide-y divide-default rounded-lg border border-default">
-      <li v-for="program in programs" :key="program.id" class="flex items-center gap-3 p-3">
-        <p class="min-w-0 flex-1 truncate font-medium">
-          {{ program.name }}
-        </p>
-        <UBadge v-if="program.active" color="primary" variant="subtle">
-          Actif
-        </UBadge>
+      <li v-for="program in programs" :key="program.id">
+        <!-- The whole row is the link, for a comfortable touch target. -->
+        <NuxtLink :to="`/programs/${program.id}`" class="flex items-center gap-3 p-3">
+          <p class="min-w-0 flex-1 truncate font-medium">
+            {{ program.name }}
+          </p>
+          <UBadge v-if="program.active" color="primary" variant="subtle">
+            Actif
+          </UBadge>
+          <UIcon name="i-lucide-chevron-right" class="size-5 text-muted" />
+        </NuxtLink>
       </li>
     </ul>
 
