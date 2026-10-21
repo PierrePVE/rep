@@ -86,6 +86,77 @@ async function onDelete() {
   )
   if (ok) await navigateTo('/programs')
 }
+
+// --- Session days ---
+
+/** True once the program has MAX_PROGRAM_DAYS days: the API refuses more. */
+const daysFull = computed(() => (program.value?.days.length ?? 0) >= MAX_PROGRAM_DAYS)
+
+const addDayOpen = ref(false)
+
+/**
+ * Adds a day at the end of the rotation, then reloads the page data.
+ * Errors propagate to NameModal, which shows them inline.
+ *
+ * @param name - Trimmed day name.
+ */
+async function addDay(name: string) {
+  await $fetch(`/api/programs/${id}/days`, { method: 'POST', body: { name } })
+  await refresh()
+}
+
+// A single rename modal serves every day: it edits the day picked last.
+const renameDayOpen = ref(false)
+const dayToRename = ref<{ id: number, name: string } | null>(null)
+
+/**
+ * Opens the rename modal for one day.
+ *
+ * @param day - The day to rename; its current name prefills the field.
+ */
+function openRenameDay(day: { id: number, name: string }) {
+  dayToRename.value = day
+  renameDayOpen.value = true
+}
+
+/**
+ * Renames the day picked in openRenameDay, then reloads the page data.
+ *
+ * @param name - Trimmed new name.
+ */
+async function renameDay(name: string) {
+  if (!dayToRename.value) return
+  await $fetch(`/api/program-days/${dayToRename.value.id}`, { method: 'PATCH', body: { name } })
+  await refresh()
+}
+
+// Two-step delete, as for the program, but per day: arming another day
+// disarms the previous one, so a stray second tap cannot hit the wrong day.
+const armedDayId = ref<number | null>(null)
+// Which day shows the spinner: one useAction is shared by all the buttons.
+const deletingDayId = ref<number | null>(null)
+const { run: runDeleteDay } = useAction()
+
+/**
+ * Handles a click on a day's delete button: arms it, or deletes the day
+ * (with its planned exercises) if it was already armed.
+ *
+ * @param dayId - Id of the clicked day.
+ */
+async function onDeleteDay(dayId: number) {
+  if (armedDayId.value !== dayId) {
+    armedDayId.value = dayId
+    return
+  }
+  armedDayId.value = null
+  deletingDayId.value = dayId
+  const ok = await runDeleteDay(
+    async () => { await $fetch(`/api/program-days/${dayId}`, { method: 'DELETE' }) },
+    'Séance supprimée',
+  )
+  if (ok) await refresh()
+  deletingDayId.value = null
+}
 </script>
 
 <template>
@@ -156,9 +227,12 @@ async function onDelete() {
         Activez un autre programme pour pouvoir supprimer celui-ci.
       </p>
 
-      <h2 class="pt-2 text-lg font-semibold">
-        Séances
-      </h2>
+      <div class="flex items-baseline gap-2 pt-2">
+        <h2 class="flex-1 text-lg font-semibold">
+          Séances
+        </h2>
+        <span class="text-sm text-muted">{{ program.days.length }} / {{ MAX_PROGRAM_DAYS }}</span>
+      </div>
 
       <p v-if="!program.days.length" class="text-muted">
         Aucune séance pour l'instant.
@@ -167,9 +241,29 @@ async function onDelete() {
       <!-- Days come sorted by position: that order is the rotation. -->
       <ol v-else class="space-y-3">
         <li v-for="day in program.days" :key="day.id" class="rounded-lg border border-default">
-          <p class="border-b border-default p-3 font-medium">
-            {{ day.name }}
-          </p>
+          <div class="flex items-center gap-1 border-b border-default py-1 pr-1 pl-3">
+            <p class="min-w-0 flex-1 truncate font-medium">
+              {{ day.name }}
+            </p>
+            <!-- Icon-only buttons: the aria-label names the day for screen readers. -->
+            <UButton
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="ghost"
+              :aria-label="`Renommer ${day.name}`"
+              @click="openRenameDay(day)"
+            />
+            <!-- Once armed, the button spells out what the next tap does. -->
+            <UButton
+              icon="i-lucide-trash-2"
+              :color="armedDayId === day.id ? 'error' : 'neutral'"
+              :variant="armedDayId === day.id ? 'solid' : 'ghost'"
+              :label="armedDayId === day.id ? 'Confirmer' : undefined"
+              :aria-label="`Supprimer ${day.name}`"
+              :loading="deletingDayId === day.id"
+              @click="onDeleteDay(day.id)"
+            />
+          </div>
           <p v-if="!day.exercises.length" class="p-3 text-sm text-muted">
             Aucun exercice.
           </p>
@@ -184,6 +278,35 @@ async function onDelete() {
           </ul>
         </li>
       </ol>
+
+      <NameModal
+        v-model:open="addDayOpen"
+        title="Nouvelle séance"
+        submit-label="Ajouter"
+        placeholder="Push"
+        :save="addDay"
+      >
+        <!-- Disabled rather than hidden, with the reason next to it. -->
+        <UButton
+          label="Ajouter une séance"
+          icon="i-lucide-plus"
+          color="neutral"
+          variant="subtle"
+          :disabled="daysFull"
+        />
+      </NameModal>
+      <p v-if="daysFull" class="text-sm text-muted">
+        {{ MAX_PROGRAM_DAYS }} séances maximum par programme.
+      </p>
+
+      <!-- Opened from each day's pencil button, never by a trigger of its own. -->
+      <NameModal
+        v-model:open="renameDayOpen"
+        title="Renommer la séance"
+        submit-label="Enregistrer"
+        :initial-name="dayToRename?.name"
+        :save="renameDay"
+      />
     </template>
   </div>
 </template>
