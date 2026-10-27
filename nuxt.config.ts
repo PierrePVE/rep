@@ -13,6 +13,12 @@ export default defineNuxtConfig({
         // home indicator, which is what makes env(safe-area-inset-*) non-zero.
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
       ],
+      link: [
+        // SVG first: sharp at any size in current browsers. The .ico (16, 32
+        // and 48 px renders of the same dumbbell) is the fallback for the rest.
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+      ],
     },
   },
   css: ['~/assets/css/main.css'],
