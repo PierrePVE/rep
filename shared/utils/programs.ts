@@ -47,7 +47,8 @@ export const programDaySchema = z.object({
  * `.refine()`, and the update schema below needs `.partial()`.
  */
 const programExerciseFields = z.object({
-  exerciseId: z.number().int().positive(),
+  // Custom message: the form shows it when no exercise has been picked yet.
+  exerciseId: z.number({ error: 'Exercice requis' }).int().positive(),
   targetSets: z.number().int().min(1, '1 série minimum').max(20, '20 séries maximum'),
   repMin: z.number().int().min(1, '1 rep minimum').max(100, '100 reps maximum'),
   repMax: z.number().int().min(1, '1 rep minimum').max(100, '100 reps maximum'),

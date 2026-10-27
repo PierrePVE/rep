@@ -131,6 +131,114 @@ async function onDeleteDay(dayId: number) {
   if (ok) await refresh()
   deletingDayId.value = null
 }
+
+// --- Planned exercises ---
+
+// The catalogue for the exercise picker. Lazy: only the modal needs it, so
+// it must not hold back the first render of the page.
+const { data: catalogue } = useFetch('/api/exercises', { lazy: true, default: () => [] })
+
+/** A planned exercise as shown in a day's list. */
+type Planned = NonNullable<typeof program.value>['days'][number]['exercises'][number]
+
+// A single modal serves every day, both to add and to edit: `editedDayId` is
+// the day an exercise is added to, `editedPlanned` the one being edited
+// (null when adding).
+const exerciseModalOpen = ref(false)
+const editedDayId = ref<number | null>(null)
+const editedPlanned = ref<Planned | null>(null)
+
+/**
+ * Opens the modal to add an exercise at the end of a day.
+ *
+ * @param dayId - Id of the day to add to.
+ */
+function openAddExercise(dayId: number) {
+  editedDayId.value = dayId
+  editedPlanned.value = null
+  exerciseModalOpen.value = true
+}
+
+/**
+ * Opens the modal to edit the targets of a planned exercise.
+ *
+ * @param planned - The planned exercise; its values prefill the form.
+ */
+function openEditExercise(planned: Planned) {
+  editedPlanned.value = planned
+  exerciseModalOpen.value = true
+}
+
+/**
+ * Saves the modal's form: PATCH when editing, POST when adding, then reloads
+ * the page data. Errors propagate to the modal, which shows them inline.
+ *
+ * @param input - Validated form values.
+ */
+async function saveExercise(input: ProgramExerciseInput) {
+  if (editedPlanned.value) {
+    // The PATCH route cannot swap the exercise and rejects the field.
+    const { exerciseId: _, ...changes } = input
+    await $fetch(`/api/program-exercises/${editedPlanned.value.id}`, { method: 'PATCH', body: changes })
+  }
+  else if (editedDayId.value !== null) {
+    await $fetch(`/api/program-days/${editedDayId.value}/exercises`, { method: 'POST', body: input })
+  }
+  await refresh()
+}
+
+// Same two-step delete as for days, keyed by planned exercise id.
+const armedPlannedId = ref<number | null>(null)
+const deletingPlannedId = ref<number | null>(null)
+const { run: runDeletePlanned } = useAction()
+
+/**
+ * Handles a click on a planned exercise's delete button: arms it, or removes
+ * the exercise from the day if it was already armed.
+ *
+ * @param plannedId - Id of the clicked planned exercise.
+ */
+async function onDeletePlanned(plannedId: number) {
+  if (armedPlannedId.value !== plannedId) {
+    armedPlannedId.value = plannedId
+    return
+  }
+  armedPlannedId.value = null
+  deletingPlannedId.value = plannedId
+  const ok = await runDeletePlanned(
+    async () => { await $fetch(`/api/program-exercises/${plannedId}`, { method: 'DELETE' }) },
+    'Exercice retiré',
+  )
+  if (ok) await refresh()
+  deletingPlannedId.value = null
+}
+
+// Disables every move button while a reorder is in flight: a second move
+// sent before the refresh would be computed from the stale order.
+const { pending: moving, run: runMove } = useAction()
+
+/**
+ * Swaps a planned exercise with its neighbour, then reloads the page data.
+ * The API takes the day's full new order rather than a single move.
+ *
+ * @param day - The day holding the exercise, with its current order.
+ * @param day.id - Id of the day.
+ * @param day.exercises - Its planned exercises, sorted by position.
+ * @param index - Position of the exercise in the day.
+ * @param offset - -1 to move it up, 1 to move it down.
+ */
+async function movePlanned(day: { id: number, exercises: Array<{ id: number }> }, index: number, offset: -1 | 1) {
+  const ids = day.exercises.map(e => e.id)
+  const target = index + offset
+  if (target < 0 || target >= ids.length) return
+  // Swap through a destructuring assignment; both indexes are in range.
+  ;[ids[index], ids[target]] = [ids[target]!, ids[index]!]
+  // No success toast: the new order on screen is the feedback.
+  const ok = await runMove(async () => {
+    await $fetch(`/api/program-days/${day.id}/order`, { method: 'PUT', body: { ids } })
+  })
+  if (ok) await refresh()
+}
 </script>
 
 <template>
@@ -234,14 +342,61 @@ async function onDeleteDay(dayId: number) {
             Aucun exercice.
           </p>
           <ul v-else class="divide-y divide-default">
-            <li v-for="planned in day.exercises" :key="planned.id" class="flex items-center gap-3 p-3 text-sm">
-              <span class="min-w-0 flex-1 truncate">{{ planned.exercise.name }}</span>
-              <!-- A single number when min and max are equal ("3 × 5"). -->
-              <span class="text-muted">
-                {{ planned.targetSets }} × {{ planned.repMin === planned.repMax ? planned.repMin : `${planned.repMin}–${planned.repMax}` }}
-              </span>
+            <li v-for="(planned, index) in day.exercises" :key="planned.id" class="flex items-center gap-1 py-1 pr-1 pl-3 text-sm">
+              <!-- The whole name and target area opens the editor: a bigger
+                   tap target than a pencil icon on a phone. -->
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-3 py-2 text-left"
+                :aria-label="`Modifier ${planned.exercise.name}`"
+                @click="openEditExercise(planned)"
+              >
+                <span class="min-w-0 flex-1 truncate">{{ planned.exercise.name }}</span>
+                <!-- A single number when min and max are equal ("3 × 5"). -->
+                <span class="text-muted">
+                  {{ planned.targetSets }} × {{ planned.repMin === planned.repMax ? planned.repMin : `${planned.repMin}–${planned.repMax}` }}
+                </span>
+              </button>
+              <UButton
+                icon="i-lucide-arrow-up"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="`Monter ${planned.exercise.name}`"
+                :disabled="index === 0 || moving"
+                @click="movePlanned(day, index, -1)"
+              />
+              <UButton
+                icon="i-lucide-arrow-down"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="`Descendre ${planned.exercise.name}`"
+                :disabled="index === day.exercises.length - 1 || moving"
+                @click="movePlanned(day, index, 1)"
+              />
+              <UButton
+                icon="i-lucide-trash-2"
+                :color="armedPlannedId === planned.id ? 'error' : 'neutral'"
+                :variant="armedPlannedId === planned.id ? 'solid' : 'ghost'"
+                size="sm"
+                :label="armedPlannedId === planned.id ? 'Confirmer' : undefined"
+                :aria-label="`Retirer ${planned.exercise.name}`"
+                :loading="deletingPlannedId === planned.id"
+                @click="onDeletePlanned(planned.id)"
+              />
             </li>
           </ul>
+          <div class="border-t border-default p-1">
+            <UButton
+              label="Ajouter un exercice"
+              icon="i-lucide-plus"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              @click="openAddExercise(day.id)"
+            />
+          </div>
         </li>
       </ol>
 
@@ -272,6 +427,16 @@ async function onDeleteDay(dayId: number) {
         submit-label="Enregistrer"
         :initial-name="dayToRename?.name"
         :save="renameDay"
+      />
+
+      <!-- Opened from the days' buttons, for adding as well as editing. -->
+      <PlannedExerciseModal
+        v-model:open="exerciseModalOpen"
+        :title="editedPlanned ? 'Modifier l\'exercice' : 'Ajouter un exercice'"
+        :submit-label="editedPlanned ? 'Enregistrer' : 'Ajouter'"
+        :exercises="catalogue"
+        :planned="editedPlanned"
+        :save="saveExercise"
       />
     </template>
   </div>
