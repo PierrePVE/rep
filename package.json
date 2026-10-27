@@ -1,0 +1,48 @@
+{
+  "name": "rep",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "typecheck": "nuxi typecheck",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx server/db/seed.ts",
+    "db:sync-exercises": "tsx server/db/syncExercises.ts",
+    "wger:import": "tsx scripts/import-wger.ts"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.141",
+    "@neondatabase/serverless": "^1.2.0",
+    "@nuxt/ui": "^4.11.3",
+    "@vite-pwa/nuxt": "^1.1.1",
+    "chart.js": "^4.5.1",
+    "drizzle-orm": "^0.45.3",
+    "nuxt": "~4.5.2",
+    "nuxt-auth-utils": "^0.5.30",
+    "tailwindcss": "^4.3.3",
+    "vue": "^3.5.43",
+    "vue-chartjs": "^5.3.4",
+    "vue-router": "^5.3.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@adonisjs/hash": "^9.1.1",
+    "@nuxt/eslint": "^1.17.0",
+    "@types/node": "^22.20.5",
+    "dotenv": "^18.0.6",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^10.12.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3",
+    "vue-tsc": "^3.3.12"
+  }
+}

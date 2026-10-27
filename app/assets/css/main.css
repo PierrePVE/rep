@@ -1,0 +1,3 @@
+/* Global stylesheet: loads Tailwind and Nuxt UI (required by @nuxt/ui v4). */
+@import "tailwindcss";
+@import "@nuxt/ui";
