@@ -29,8 +29,9 @@ export const EQUIPMENTS = [
 /** Create an exercise (POST /api/exercises). */
 export const exerciseSchema = z.object({
   name: nameSchema,
-  muscleGroup: z.enum(MUSCLE_GROUPS),
-  equipment: z.enum(EQUIPMENTS),
+  // Custom messages: the form shows them while nothing is picked yet.
+  muscleGroup: z.enum(MUSCLE_GROUPS, { error: 'Groupe musculaire requis' }),
+  equipment: z.enum(EQUIPMENTS, { error: 'Équipement requis' }),
 })
 
 /**
