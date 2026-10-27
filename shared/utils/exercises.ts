@@ -42,6 +42,16 @@ export const exerciseUpdateSchema = exerciseSchema
   .extend({ archived: z.boolean() })
   .partial()
 
+/**
+ * Query string of GET /api/exercises. Query values always arrive as strings
+ * ("true"), so z.stringbool() turns them into a real boolean ("false", "0",
+ * "no" give false; anything unknown is a 400). Absent means the active
+ * exercises, which is what the pickers want.
+ */
+export const exerciseListQuerySchema = z.object({
+  archived: z.stringbool().default(false),
+})
+
 /** French labels of the muscle groups. The Record type makes a value added to MUSCLE_GROUPS fail to compile until it gets a label. */
 export const MUSCLE_GROUP_LABELS: Record<typeof MUSCLE_GROUPS[number], string> = {
   chest: 'Pectoraux',
