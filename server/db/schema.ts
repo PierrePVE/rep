@@ -39,6 +39,7 @@
  * Personal records are NOT stored: they are computed on the fly from `sets`
  * (see docs/DATA_MODEL.md), so there is no `prs` table.
  */
+import { EQUIPMENTS, MUSCLE_GROUPS } from '../../shared/utils/exercises'
 import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
@@ -69,15 +70,10 @@ import {
 export const userRole = pgEnum('user_role', ['user', 'admin', 'demo'])
 
 /** Main muscle group of an exercise, used for the weekly volume per muscle stats. */
-export const muscleGroup = pgEnum('muscle_group', [
-  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms',
-  'quads', 'hamstrings', 'glutes', 'calves', 'abs', 'full_body',
-])
+export const muscleGroup = pgEnum('muscle_group', MUSCLE_GROUPS)
 
 /** Equipment used, mostly to tell apart variants (barbell vs dumbbell bench). */
-export const equipment = pgEnum('equipment', [
-  'barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'kettlebell', 'other',
-])
+export const equipment = pgEnum('equipment', EQUIPMENTS)
 
 /**
  * Kind of set. Replaces the `isWarmup` boolean of the original spec, because

@@ -16,8 +16,11 @@ import { z } from 'zod'
  */
 export const MAX_PROGRAM_DAYS = 7
 
-/** Program and day names: trimmed so that "  Push A " and "Push A" are the same. */
-const nameSchema = z.string()
+/**
+ * Program, day and exercise names: trimmed so that "  Push A " and "Push A"
+ * are the same. Exported for shared/utils/exercises.ts.
+ */
+export const nameSchema = z.string()
   .trim()
   .min(1, 'Nom requis')
   .max(50, '50 caractères maximum')
