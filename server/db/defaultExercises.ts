@@ -2,14 +2,25 @@
  * Base exercise catalogue given to every new account.
  *
  * Each user owns their own copy (see `exercises` in schema.ts), so this list is
- * inserted once per user: by the seed for the admin and demo accounts, and by
- * the sign-up route for everyone else.
+ * inserted once per user: by the seed for the admin and demo accounts, by the
+ * sign-up route for everyone else, and by `npm run db:sync-exercises` to top up
+ * existing accounts after the list grows.
+ *
+ * Two parts: the original hand-written exercises below, kept under their
+ * existing names so accounts that already have them get no duplicates, and a
+ * larger selection imported from wger (see scripts/import-wger.ts).
  */
 import type { Db } from './client'
 import { exercises, type NewExercise } from './schema'
+// Plain JSON, bundled by Nitro for the sign-up route and read by tsx for the
+// scripts. Generated: never edit it by hand.
+import wger from './wgerExercises.json'
 
-/** The base exercises, without `userId` (filled in per account). */
-export const DEFAULT_EXERCISES: Omit<NewExercise, 'userId'>[] = [
+/** One base exercise, without `userId` (filled in per account). */
+type BaseExercise = Omit<NewExercise, 'userId'>
+
+/** The original hand-written exercises. */
+const HAND_WRITTEN: BaseExercise[] = [
   // Chest
   { name: 'Développé couché', muscleGroup: 'chest', equipment: 'barbell' },
   { name: 'Développé incliné haltères', muscleGroup: 'chest', equipment: 'dumbbell' },
@@ -40,6 +51,16 @@ export const DEFAULT_EXERCISES: Omit<NewExercise, 'userId'>[] = [
   // Abs
   { name: 'Crunch poulie', muscleGroup: 'abs', equipment: 'cable' },
   { name: 'Gainage', muscleGroup: 'abs', equipment: 'bodyweight' },
+]
+
+/**
+ * The whole base catalogue. wgerId is dropped: the table has no column for it
+ * yet. The cast only narrows JSON strings to the enum types, which the import
+ * script already validated against the same enums.
+ */
+export const DEFAULT_EXERCISES: BaseExercise[] = [
+  ...HAND_WRITTEN,
+  ...wger.exercises.map(({ name, muscleGroup, equipment }) => ({ name, muscleGroup, equipment }) as BaseExercise),
 ]
 
 /**
