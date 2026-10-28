@@ -40,6 +40,7 @@
  * (see docs/DATA_MODEL.md), so there is no `prs` table.
  */
 import { EQUIPMENTS, MUSCLE_GROUPS } from '../../shared/utils/exercises'
+import { SET_TYPES } from '../../shared/utils/sets'
 import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
@@ -84,7 +85,7 @@ export const equipment = pgEnum('equipment', EQUIPMENTS)
  *             tagged) by the "last time" display and the prefill, so a lighter
  *             drop set never reads as a regression.
  */
-export const setType = pgEnum('set_type', ['normal', 'warmup', 'drop'])
+export const setType = pgEnum('set_type', SET_TYPES)
 
 // ---------------------------------------------------------------------------
 // Auth tables
@@ -380,4 +381,3 @@ export type NewWorkoutExercise = typeof workoutExercises.$inferInsert
 // Not named `Set`: it would shadow the built-in JavaScript Set.
 export type WorkoutSet = typeof sets.$inferSelect
 export type NewWorkoutSet = typeof sets.$inferInsert
-export type SetType = (typeof setType.enumValues)[number]
