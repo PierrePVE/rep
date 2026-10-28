@@ -1,8 +1,9 @@
 /**
- * Ownership guards for the program editor routes.
+ * Ownership guards for the program editor and workout logger routes.
  *
- * Only `programs` carries a `userId`: days and planned exercises belong to a
- * user through their program. Each guard therefore joins up to `programs` and
+ * Only `programs` and `workouts` carry a `userId`: days and planned exercises
+ * belong to a user through their program, workout exercises and sets through
+ * their workout. Each guard therefore joins up to the owning table and
  * filters on the user, so a route can never act on another user's row just by
  * guessing its id.
  *
@@ -10,7 +11,7 @@
  * to someone else, so the ids of other users cannot be probed.
  */
 import { and, eq } from 'drizzle-orm'
-import { programDays, programExercises, programs } from '../db/schema'
+import { programDays, programExercises, programs, workouts } from '../db/schema'
 
 /**
  * Loads a program of the given user.
@@ -35,12 +36,18 @@ export async function requireOwnedProgram(userId: number, programId: number) {
  *
  * @param userId - Logged-in user.
  * @param dayId - Program day id from the route.
- * @returns The day's id, program id and position (needed to renumber on delete).
+ * @returns The day's id, program id, name (a workout started from the day is
+ *   named after it) and position (needed to renumber on delete).
  * @throws 404 if the day does not exist or belongs to another user.
  */
 export async function requireOwnedDay(userId: number, dayId: number) {
   const [day] = await useDb()
-    .select({ id: programDays.id, programId: programDays.programId, position: programDays.position })
+    .select({
+      id: programDays.id,
+      programId: programDays.programId,
+      name: programDays.name,
+      position: programDays.position,
+    })
     .from(programDays)
     .innerJoin(programs, eq(programs.id, programDays.programId))
     .where(and(eq(programDays.id, dayId), eq(programs.userId, userId)))
@@ -74,4 +81,22 @@ export async function requireOwnedProgramExercise(userId: number, programExercis
 
   if (!programExercise) throw createError({ statusCode: 404, message: 'Exercice introuvable dans ce programme' })
   return programExercise
+}
+
+/**
+ * Loads a workout of the given user.
+ *
+ * @param userId - Logged-in user.
+ * @param workoutId - Workout id from the route.
+ * @returns Its id and end date (null while the session is in progress).
+ * @throws 404 if the workout does not exist or belongs to another user.
+ */
+export async function requireOwnedWorkout(userId: number, workoutId: number) {
+  const [workout] = await useDb()
+    .select({ id: workouts.id, endedAt: workouts.endedAt })
+    .from(workouts)
+    .where(and(eq(workouts.id, workoutId), eq(workouts.userId, userId)))
+
+  if (!workout) throw createError({ statusCode: 404, message: 'Séance introuvable' })
+  return workout
 }
