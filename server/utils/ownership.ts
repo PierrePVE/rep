@@ -11,7 +11,7 @@
  * to someone else, so the ids of other users cannot be probed.
  */
 import { and, eq } from 'drizzle-orm'
-import { programDays, programExercises, programs, workoutExercises, workouts } from '../db/schema'
+import { programDays, programExercises, programs, sets, workoutExercises, workouts } from '../db/schema'
 
 /**
  * Loads a program of the given user.
@@ -124,4 +124,25 @@ export async function requireOwnedWorkoutExercise(userId: number, workoutExercis
 
   if (!workoutExercise) throw createError({ statusCode: 404, message: 'Exercice introuvable dans cette séance' })
   return workoutExercise
+}
+
+/**
+ * Loads a set of a workout of the given user.
+ *
+ * @param userId - Logged-in user.
+ * @param setId - Set id from the route.
+ * @returns Its id, workout exercise id and position (needed to renumber on
+ *   delete).
+ * @throws 404 if it does not exist or belongs to another user.
+ */
+export async function requireOwnedSet(userId: number, setId: number) {
+  const [set] = await useDb()
+    .select({ id: sets.id, workoutExerciseId: sets.workoutExerciseId, position: sets.position })
+    .from(sets)
+    .innerJoin(workoutExercises, eq(workoutExercises.id, sets.workoutExerciseId))
+    .innerJoin(workouts, eq(workouts.id, workoutExercises.workoutId))
+    .where(and(eq(sets.id, setId), eq(workouts.userId, userId)))
+
+  if (!set) throw createError({ statusCode: 404, message: 'Série introuvable' })
+  return set
 }
