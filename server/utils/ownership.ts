@@ -11,7 +11,7 @@
  * to someone else, so the ids of other users cannot be probed.
  */
 import { and, eq } from 'drizzle-orm'
-import { programDays, programExercises, programs, workouts } from '../db/schema'
+import { programDays, programExercises, programs, workoutExercises, workouts } from '../db/schema'
 
 /**
  * Loads a program of the given user.
@@ -99,4 +99,29 @@ export async function requireOwnedWorkout(userId: number, workoutId: number) {
 
   if (!workout) throw createError({ statusCode: 404, message: 'Séance introuvable' })
   return workout
+}
+
+/**
+ * Loads an exercise of a workout of the given user.
+ *
+ * @param userId - Logged-in user.
+ * @param workoutExerciseId - Workout exercise id from the route.
+ * @returns Its id, workout id, exercise id (the PR history is per exercise)
+ *   and position (needed to renumber on delete).
+ * @throws 404 if it does not exist or belongs to another user.
+ */
+export async function requireOwnedWorkoutExercise(userId: number, workoutExerciseId: number) {
+  const [workoutExercise] = await useDb()
+    .select({
+      id: workoutExercises.id,
+      workoutId: workoutExercises.workoutId,
+      exerciseId: workoutExercises.exerciseId,
+      position: workoutExercises.position,
+    })
+    .from(workoutExercises)
+    .innerJoin(workouts, eq(workouts.id, workoutExercises.workoutId))
+    .where(and(eq(workoutExercises.id, workoutExerciseId), eq(workouts.userId, userId)))
+
+  if (!workoutExercise) throw createError({ statusCode: 404, message: 'Exercice introuvable dans cette séance' })
+  return workoutExercise
 }
