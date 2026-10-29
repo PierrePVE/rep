@@ -42,6 +42,9 @@ export default defineEventHandler(async (event) => {
       position: sql`(SELECT COALESCE(MAX(${workoutExercises.position}), -1) + 1 FROM ${workoutExercises} WHERE ${workoutExercises.workoutId} = ${workout.id})`,
     })
     .returning()
+  // .returning() always yields the inserted row; this only narrows the type
+  // (without it, the spread below would make every field optional).
+  if (!created) throw createError({ statusCode: 500, message: 'Ajout de l\'exercice impossible' })
 
   setResponseStatus(event, 201)
   return { ...created, exercise, sets: [] }
