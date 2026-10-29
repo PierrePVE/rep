@@ -11,7 +11,26 @@
  * to someone else, so the ids of other users cannot be probed.
  */
 import { and, eq } from 'drizzle-orm'
-import { programDays, programExercises, programs, sets, workoutExercises, workouts } from '../db/schema'
+import { exercises, programDays, programExercises, programs, sets, workoutExercises, workouts } from '../db/schema'
+
+/**
+ * Loads an exercise of the given user's catalogue (archived ones included:
+ * their history stays readable).
+ *
+ * @param userId - Logged-in user.
+ * @param exerciseId - Exercise id from the route.
+ * @returns The exercise's id.
+ * @throws 404 if the exercise does not exist or belongs to another user.
+ */
+export async function requireOwnedExercise(userId: number, exerciseId: number) {
+  const [exercise] = await useDb()
+    .select({ id: exercises.id })
+    .from(exercises)
+    .where(and(eq(exercises.id, exerciseId), eq(exercises.userId, userId)))
+
+  if (!exercise) throw createError({ statusCode: 404, message: 'Exercice introuvable' })
+  return exercise
+}
 
 /**
  * Loads a program of the given user.
