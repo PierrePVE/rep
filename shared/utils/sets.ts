@@ -15,3 +15,14 @@
 export const SET_TYPES = ['normal', 'warmup', 'drop'] as const
 
 export type SetType = (typeof SET_TYPES)[number]
+
+/**
+ * Short French labels of the set types, for the badges of the logging screen.
+ * `normal` has none: work sets are the default and show no badge. The Record
+ * type makes a value added to SET_TYPES fail to compile until it gets a label.
+ */
+export const SET_TYPE_LABELS: Record<SetType, string | null> = {
+  normal: null,
+  warmup: 'Échauffement',
+  drop: 'Dégressive',
+}
