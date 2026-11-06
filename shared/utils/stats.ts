@@ -87,14 +87,15 @@ export function exerciseRecords(sets: StatSet[]) {
 /**
  * Per-session figures of an exercise, for its charts and history.
  *
- * @param sets - All the sets of the exercise, in session order.
+ * @param sets - All the sets of the exercise, in session order. Extra
+ *   fields (e.g. the set id) are kept on the sets of each session.
  * @returns One entry per session, in the same order: its sets, the best
  *   estimated 1RM of its work sets (null if none has one: bodyweight, or all
  *   above 12 reps) and its volume (weight × reps of all but the warm-ups,
  *   the same rule as the history list).
  */
-export function exerciseSessions(sets: StatSet[]) {
-  const sessions: Array<{ workoutId: number, startedAt: string, bestE1rm: number | null, volumeKg: number, sets: StatSet[] }> = []
+export function exerciseSessions<T extends StatSet>(sets: T[]) {
+  const sessions: Array<{ workoutId: number, startedAt: string, bestE1rm: number | null, volumeKg: number, sets: T[] }> = []
 
   for (const s of sets) {
     let session = sessions.at(-1)
