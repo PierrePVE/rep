@@ -1,6 +1,6 @@
 <!--
   Program page: shows one program with its session days and their planned
-  exercises, and lets the user rename, activate or delete it.
+  exercises, and lets the user rename, activate, share or delete it.
 -->
 <script setup lang="ts">
 const route = useRoute()
@@ -415,6 +415,8 @@ async function movePlanned(day: { id: number, exercises: Array<{ id: number }> }
       <p v-if="daysFull" class="text-sm text-muted">
         {{ MAX_PROGRAM_DAYS }} séances maximum par programme.
       </p>
+
+      <ShareProgramCard :program-id="program.id" :share-token="program.shareToken" />
 
       <!-- Opened from each day's pencil button, never by a trigger of its own. -->
       <NameModal
