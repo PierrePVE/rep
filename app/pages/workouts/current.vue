@@ -1,6 +1,7 @@
 <!--
   Current workout: the main logging screen. Without a session in progress, it
-  offers to start one (a day of the active program, or a free session); with
+  offers to start one (a day of the active program, the next day of the
+  rotation being highlighted, or a free session); with
   one, it shows its exercises and sets, lets the user add exercises outside
   the plan, and finish it. A rest timer (which the user can turn off) runs
   after each logged set.
@@ -21,29 +22,12 @@ const { error } = await useAsyncData('current-workout', async () => {
   return true
 })
 
-/**
- * Loads the days of the user's active program, to offer them as starting
- * points. Two calls: the list only tells which program is active, the
- * detail route holds the days.
- *
- * @returns The program's name and days, or null without an active program.
- */
-async function fetchActiveProgram() {
-  const programs = await requestFetch('/api/programs')
-  const active = programs.find(p => p.active)
-  if (!active) return null
-  const program = await requestFetch(`/api/programs/${active.id}`)
-  return {
-    name: program.name,
-    days: program.days.map(d => ({ id: d.id, name: d.name, exerciseCount: d.exercises.length })),
-  }
-}
-
 // Only needed on the start screen. `watch` reloads it when the session is
 // finished, since the page then switches back to that screen.
+// The suggested day comes from the server, which knows the last session done.
 const { data: activeProgram } = await useAsyncData(
   'active-program-days',
-  () => (workout.value === null ? fetchActiveProgram() : Promise.resolve(null)),
+  async () => (workout.value === null ? (await requestFetch('/api/active-program')).program : null),
   { watch: [() => workout.value === null] },
 )
 
@@ -158,13 +142,19 @@ async function onFinish() {
         </h2>
         <ul class="divide-y divide-default rounded-lg border border-default">
           <li v-for="day in activeProgram.days" :key="day.id">
+            <!-- The suggested day stays in its place in the rotation (so the
+                 list still reads as the program) but stands out. -->
             <button
               type="button"
               class="flex w-full items-center gap-3 p-3 text-left disabled:opacity-50"
+              :class="{ 'bg-primary/10': day.id === activeProgram.nextDayId }"
               :disabled="starting !== null"
               @click="onStart(day.id)"
             >
               <span class="min-w-0 flex-1 truncate font-medium">{{ day.name }}</span>
+              <UBadge v-if="day.id === activeProgram.nextDayId" color="primary" variant="subtle" size="sm">
+                Suggéré
+              </UBadge>
               <span class="text-sm text-muted">
                 {{ day.exerciseCount }} exercice{{ day.exerciseCount > 1 ? 's' : '' }}
               </span>
