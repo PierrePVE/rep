@@ -1,13 +1,13 @@
 /**
  * GET /api/workouts/:id/photo: the photo of a session, as an image.
  *
- * Only the owner can see it for now; followers will be allowed with the
- * social feed. The URL carries a version (?v=, see photoUrl), so the response
+ * Same audience as the session itself (see requireViewableWorkout): its
+ * owner, and followers when it is visible to them. The URL carries a version (?v=, see photoUrl), so the response
  * can be cached for good; "private" keeps shared caches (CDN, proxies) from
  * storing a personal picture.
  *
  * Errors: 401 if not logged in, 400 if :id is invalid, 404 if the workout
- * does not exist, belongs to another user, or has no photo.
+ * does not exist, may not be seen by the user, or has no photo.
  */
 import { eq } from 'drizzle-orm'
 import { workoutPhotos } from '../../../db/schema'
@@ -15,7 +15,7 @@ import { workoutPhotos } from '../../../db/schema'
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
-  await requireOwnedWorkout(user.id, id)
+  await requireViewableWorkout(user.id, id)
 
   const [photo] = await useDb()
     .select({ data: workoutPhotos.data, mimeType: workoutPhotos.mimeType })
