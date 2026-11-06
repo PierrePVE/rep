@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { SET_TYPES } from './sets'
+import { WORKOUT_VISIBILITIES } from './social'
 
 /**
  * Start a session (POST /api/workouts). With a program day, the session is
@@ -63,6 +64,8 @@ export const workoutListQuerySchema = z.object({
 export const workoutUpdateSchema = z.object({
   name: z.string().trim().max(50, '50 caractères maximum').transform(v => v || null).nullable().optional(),
   notes: z.string().trim().max(1000, '1000 caractères maximum').transform(v => v || null).nullable().optional(),
+  // Who sees the session in the social feed: followers (default) or only its owner.
+  visibility: z.enum(WORKOUT_VISIBILITIES).optional(),
 })
 
 export type StartWorkoutInput = z.infer<typeof startWorkoutSchema>
