@@ -17,6 +17,21 @@ import type { SetType } from './sets'
  */
 export const APP_TIME_ZONE = 'Europe/Paris'
 
+/** Sessions a week the dashboard counts towards (the user trains 6 days a week). */
+export const WEEKLY_SESSION_GOAL = 6
+
+/**
+ * Day of a moment in the app's time zone.
+ *
+ * @param date - The moment (e.g. now).
+ * @returns The local day as "YYYY-MM-DD": 23:30 UTC on 1 November is
+ *   already "2026-11-02" in Paris.
+ */
+export function localDay(date: Date) {
+  // The en-CA locale formats dates as YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIME_ZONE }).format(date)
+}
+
 /** A set with the session it belongs to, as the stats queries return it. */
 export interface StatSet {
   workoutId: number
@@ -149,7 +164,7 @@ export function recentPrs<T extends StatSet & { exerciseId: number }>(sets: T[],
  * @param day - A day as "YYYY-MM-DD".
  * @returns Its week's Monday.
  */
-function mondayOf(day: string) {
+export function weekStart(day: string) {
   const date = new Date(`${day}T00:00:00Z`)
   // getUTCDay(): 0 = Sunday ... 6 = Saturday; Monday is the first day here.
   date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7))
@@ -167,8 +182,8 @@ function mondayOf(day: string) {
  * @returns The streak, in weeks.
  */
 export function weekStreak(sessionDays: string[], today: string) {
-  const weeks = new Set(sessionDays.map(mondayOf))
-  const week = new Date(`${mondayOf(today)}T00:00:00Z`)
+  const weeks = new Set(sessionDays.map(weekStart))
+  const week = new Date(`${weekStart(today)}T00:00:00Z`)
   if (!weeks.has(week.toISOString().slice(0, 10))) week.setUTCDate(week.getUTCDate() - 7)
 
   let streak = 0

@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest'
 import {
   exerciseRecords,
   exerciseSessions,
+  localDay,
   recentPrs,
+  weekStart,
   weekStreak,
   type StatSet,
 } from '../../shared/utils/stats'
@@ -131,5 +133,23 @@ describe('weekStreak', () => {
 
   it('handles weeks across a year change', () => {
     expect(weekStreak(['2027-01-04', '2026-12-31', '2026-12-22'], '2027-01-05')).toBe(3)
+  })
+})
+
+describe('weekStart', () => {
+  it('gives the Monday of the week', () => {
+    expect(weekStart('2026-11-04')).toBe('2026-11-02') // Wednesday
+    expect(weekStart('2026-11-02')).toBe('2026-11-02') // Monday itself
+    expect(weekStart('2026-11-08')).toBe('2026-11-02') // Sunday ends the week
+    expect(weekStart('2027-01-01')).toBe('2026-12-28') // across a year change
+  })
+})
+
+describe('localDay', () => {
+  it('uses the Paris day, not the UTC one', () => {
+    // 23:30 UTC in winter is 00:30 the next day in Paris (UTC+1).
+    expect(localDay(new Date('2026-11-01T23:30:00Z'))).toBe('2026-11-02')
+    // 21:30 UTC in summer is 23:30 the same day in Paris (UTC+2).
+    expect(localDay(new Date('2026-07-01T21:30:00Z'))).toBe('2026-07-01')
   })
 })
