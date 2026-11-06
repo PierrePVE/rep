@@ -12,6 +12,8 @@ import { fr } from '@nuxt/ui/locale'
 
 <template>
   <UApp :locale="fr">
+    <!-- Injects the <link rel="manifest"> of the PWA (see `pwa` in nuxt.config). -->
+    <NuxtPwaManifest />
     <NuxtRouteAnnouncer />
     <NuxtLayout>
       <NuxtPage />
