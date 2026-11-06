@@ -84,6 +84,14 @@ const months = computed(() => {
       <ul class="divide-y divide-default rounded-lg border border-default">
         <li v-for="item in month.items" :key="item.id">
           <NuxtLink :to="`/workouts/${item.id}`" class="flex items-center gap-3 p-3">
+            <!-- Lazy: a long history would otherwise load every photo at once. -->
+            <img
+              v-if="item.photoUrl"
+              :src="item.photoUrl"
+              alt=""
+              loading="lazy"
+              class="size-12 shrink-0 rounded-md object-cover"
+            >
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium">
                 {{ item.name ?? 'Séance libre' }}

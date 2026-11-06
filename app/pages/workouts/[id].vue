@@ -1,8 +1,8 @@
 <!--
   Detail of a finished session, from the history. Everything stays editable
   after the fact, with the same cards as the logging screen: rename it, write
-  notes, add or remove exercises, fix, add or delete sets. It can also be
-  deleted. A session still in progress is sent to the logging screen instead.
+  notes, add, replace or remove its photo, add or remove exercises, fix, add
+  or delete sets. It can also be deleted. A session still in progress is sent to the logging screen instead.
 -->
 <script setup lang="ts">
 import type { CurrentWorkout } from '~/composables/useCurrentWorkout'
@@ -165,6 +165,8 @@ async function onDelete() {
           Volume {{ formatVolume(volumeKg) }}
         </p>
       </div>
+
+      <WorkoutPhoto v-model:photo-url="workout.photoUrl" :workout-id="workout.id" />
 
       <NameModal
         v-model:open="renameOpen"

@@ -3,7 +3,8 @@
   offers to start one (a day of the active program, the next day of the
   rotation being highlighted, or a free session); with
   one, it shows its exercises and sets, lets the user add exercises outside
-  the plan, and finish it. A rest timer (which the user can turn off) runs
+  the plan, and finish it (then opens its summary, where a photo can be
+  added). A rest timer (which the user can turn off) runs
   after each logged set.
 -->
 <script setup lang="ts">
@@ -92,10 +93,14 @@ async function onFinish() {
   }
   finishArmed.value = false
   finishing.value = true
+  // Read before finish(), which clears the state.
+  const finishedId = workout.value?.id
   if (await finish()) {
     // A rest still running would otherwise show up again in the next session.
     restTimer.stop()
     toast.add({ title: 'Séance terminée', color: 'success' })
+    // Straight to the summary, Strava-style: that is where the photo is added.
+    if (finishedId) await navigateTo(`/workouts/${finishedId}`)
   }
   finishing.value = false
 }
