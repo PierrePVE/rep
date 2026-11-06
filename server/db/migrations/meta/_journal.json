@@ -22,6 +22,13 @@
       "when": 1793974490724,
       "tag": "0002_add_program_share_token",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793976155429,
+      "tag": "0003_add_workout_photos",
+      "breakpoints": true
     }
   ]
 }

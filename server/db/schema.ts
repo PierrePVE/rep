@@ -24,6 +24,7 @@
  * - `programs`          : a training program (e.g. "PPL"), one active per user.
  * - `program_days`      : one session of a program (e.g. "Push A"), in rotation order.
  * - `program_exercises` : a planned exercise of a day, with its targets (sets, reps...).
+ * - `workout_photos`    : the optional photo of a session (one per workout).
  *
  * Ownership: only `exercises`, `workouts` and `programs` carry a `userId`.
  * Workout exercises and sets belong to a user through their workout, program
@@ -45,6 +46,7 @@ import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   numeric,
@@ -304,6 +306,36 @@ export const sets = pgTable('sets', {
   check('sets_rpe_ck', sql`rpe IS NULL OR (rpe BETWEEN 1 AND 10 AND rpe * 2 = trunc(rpe * 2))`),
 ])
 
+/**
+ * Postgres `bytea` column read and written as a Node Buffer. Drizzle has no
+ * built-in bytea type for pg-core.
+ */
+const bytea = customType<{ data: Buffer, driverData: Buffer }>({
+  dataType: () => 'bytea',
+})
+
+/**
+ * The photo of a session, Strava-style, taken at the end or added later.
+ * Its own table rather than a column of `workouts`, so that listing workouts
+ * never drags the image bytes along; the primary key on workoutId allows a
+ * single photo per session (replacing it is an upsert).
+ *
+ * Stored in the database on purpose (user's choice, no blob store to set up):
+ * the client shrinks the picture to a few hundred KB before upload, and the
+ * CHECK caps the size so one row can never bloat the database.
+ */
+export const workoutPhotos = pgTable('workout_photos', {
+  workoutId: integer().primaryKey().references(() => workouts.id, { onDelete: 'cascade' }),
+  data: bytea().notNull(),
+  mimeType: text().notNull(),
+  // Changes on every replacement: the photo URL carries it (?v=...), so the
+  // browser cache never shows the previous picture.
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, () => [
+  check('workout_photos_size_ck', sql`octet_length(data) BETWEEN 1 AND 1048576`),
+  check('workout_photos_mime_ck', sql`mime_type IN ('image/jpeg', 'image/webp')`),
+])
+
 // ---------------------------------------------------------------------------
 // Relations: no effect on the SQL schema (the foreign keys above do that).
 // They only teach Drizzle's query API how to load nested data, e.g.
@@ -347,6 +379,11 @@ export const workoutsRelations = relations(workouts, ({ one, many }) => ({
   user: one(users, { fields: [workouts.userId], references: [users.id] }),
   programDay: one(programDays, { fields: [workouts.programDayId], references: [programDays.id] }),
   exercises: many(workoutExercises),
+  photo: one(workoutPhotos),
+}))
+
+export const workoutPhotosRelations = relations(workoutPhotos, ({ one }) => ({
+  workout: one(workouts, { fields: [workoutPhotos.workoutId], references: [workouts.id] }),
 }))
 
 export const workoutExercisesRelations = relations(workoutExercises, ({ one, many }) => ({
