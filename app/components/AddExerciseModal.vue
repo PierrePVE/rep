@@ -16,10 +16,6 @@ const props = defineProps<{
 
 const open = defineModel<boolean>('open', { default: false })
 
-// The catalogue for the picker. Lazy and client-only: only needed once the
-// modal opens, and the page must not wait for it.
-const { data: catalogue } = useFetch('/api/exercises', { lazy: true, server: false, default: () => [] })
-
 const exerciseId = ref<number | undefined>(undefined)
 const adding = ref(false)
 
@@ -42,16 +38,8 @@ async function onAdd() {
   <UModal v-model:open="open" title="Ajouter un exercice">
     <template #body>
       <div class="space-y-4">
-        <!-- Searchable: the catalogue holds dozens of exercises. -->
-        <USelectMenu
-          v-model="exerciseId"
-          :items="catalogue"
-          value-key="id"
-          label-key="name"
-          placeholder="Choisir un exercice"
-          :search-input="{ placeholder: 'Rechercher…' }"
-          class="w-full"
-        />
+        <!-- Searchable, and creates the exercise when it is missing. -->
+        <ExercisePicker v-model="exerciseId" />
         <UButton
           label="Ajouter"
           block

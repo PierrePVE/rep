@@ -134,10 +134,6 @@ async function onDeleteDay(dayId: number) {
 
 // --- Planned exercises ---
 
-// The catalogue for the exercise picker. Lazy: only the modal needs it, so
-// it must not hold back the first render of the page.
-const { data: catalogue } = useFetch('/api/exercises', { lazy: true, default: () => [] })
-
 /** A planned exercise as shown in a day's list. */
 type Planned = NonNullable<typeof program.value>['days'][number]['exercises'][number]
 
@@ -434,7 +430,6 @@ async function movePlanned(day: { id: number, exercises: Array<{ id: number }> }
         v-model:open="exerciseModalOpen"
         :title="editedPlanned ? 'Modifier l\'exercice' : 'Ajouter un exercice'"
         :submit-label="editedPlanned ? 'Enregistrer' : 'Ajouter'"
-        :exercises="catalogue"
         :planned="editedPlanned"
         :save="saveExercise"
       />
