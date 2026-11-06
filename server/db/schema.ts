@@ -174,10 +174,17 @@ export const programs = pgTable('programs', {
   userId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text().notNull(),
   active: boolean().notNull().default(false),
+  // Secret of the share link (/programs/shared/<token>), null while the
+  // program is not shared. Kept in clear, unlike session tokens: the owner
+  // must be able to see and copy the link again, and it only gives a
+  // logged-in user a read-only view and a copy, never write access.
+  shareToken: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }, t => [
   // Also serves "list my programs" (it starts with user_id).
   uniqueIndex('programs_user_name_uq').on(t.userId, t.name),
+  // Looks up a shared program by its link, and makes two links never collide.
+  uniqueIndex('programs_share_token_uq').on(t.shareToken),
   // At most ONE active program per user, same partial-index trick as
   // `workouts_one_in_progress_uq`.
   uniqueIndex('programs_one_active_uq').on(t.userId).where(sql`active`),
