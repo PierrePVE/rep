@@ -25,6 +25,8 @@
  * - `program_days`      : one session of a program (e.g. "Push A"), in rotation order.
  * - `program_exercises` : a planned exercise of a day, with its targets (sets, reps...).
  * - `workout_photos`    : the optional photo of a session (one per workout).
+ * - `follows`           : who follows whom, as a request until accepted.
+ * - `workout_likes`     : the "bravo" a user gives to a session in the feed.
  *
  * Ownership: only `exercises`, `workouts` and `programs` carry a `userId`.
  * Workout exercises and sets belong to a user through their workout, program
@@ -42,6 +44,7 @@
  */
 import { EQUIPMENTS, MUSCLE_GROUPS } from '../../shared/utils/exercises'
 import { SET_TYPES } from '../../shared/utils/sets'
+import { FOLLOW_STATUSES, USERNAME_PATTERN_SOURCE, WORKOUT_VISIBILITIES } from '../../shared/utils/social'
 import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
@@ -51,6 +54,7 @@ import {
   integer,
   numeric,
   pgEnum,
+  primaryKey,
   pgTable,
   serial,
   text,
@@ -89,6 +93,12 @@ export const equipment = pgEnum('equipment', EQUIPMENTS)
  */
 export const setType = pgEnum('set_type', SET_TYPES)
 
+/** Follow request state, see FOLLOW_STATUSES. */
+export const followStatus = pgEnum('follow_status', FOLLOW_STATUSES)
+
+/** Who sees a finished session, see WORKOUT_VISIBILITIES. */
+export const workoutVisibility = pgEnum('workout_visibility', WORKOUT_VISIBILITIES)
+
 // ---------------------------------------------------------------------------
 // Auth tables
 // ---------------------------------------------------------------------------
@@ -103,8 +113,15 @@ export const users = pgTable('users', {
   // hashPassword), which embeds its own salt and parameters.
   passwordHash: text().notNull(),
   role: userRole().notNull().default('user'),
+  // Public name in the social feed: the email is never shown to other users.
+  // Nullable: accounts created before the feed have none, and the social
+  // pages ask for it before anything else.
+  username: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }, t => [
+  // Already lowercase (CHECK below), so a plain unique index is enough.
+  uniqueIndex('users_username_uq').on(t.username),
+  check('users_username_ck', sql.raw(`username IS NULL OR username ~ '${USERNAME_PATTERN_SOURCE}'`)),
   // On lower(email) rather than email, so "Pierre@x.com" and "pierre@x.com"
   // cannot become two accounts.
   uniqueIndex('users_email_uq').on(sql`lower(email)`),
@@ -250,6 +267,7 @@ export const workouts = pgTable('workouts', {
   startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   endedAt: timestamp({ withTimezone: true }),
   notes: text(),
+  visibility: workoutVisibility().notNull().default('followers'),
 }, t => [
   // History list and stats always filter by user and sort by date.
   index('workouts_user_started_at_idx').on(t.userId, t.startedAt),
@@ -334,6 +352,33 @@ export const workoutPhotos = pgTable('workout_photos', {
 }, () => [
   check('workout_photos_size_ck', sql`octet_length(data) BETWEEN 1 AND 1048576`),
   check('workout_photos_mime_ck', sql`mime_type IN ('image/jpeg', 'image/webp')`),
+])
+
+/**
+ * Who follows whom. A row starts `pending` and becomes `accepted` when the
+ * followed user says yes; refusing or unfollowing deletes it. One row per
+ * pair (primary key), so a second request is a no-op.
+ */
+export const follows = pgTable('follows', {
+  followerId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  followeeId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: followStatus().notNull().default('pending'),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  primaryKey({ columns: [t.followerId, t.followeeId] }),
+  // The primary key serves "whom do I follow"; this one serves "who follows
+  // me" and the pending requests list.
+  index('follows_followee_idx').on(t.followeeId, t.status),
+  check('follows_not_self_ck', sql`follower_id <> followee_id`),
+])
+
+/** A "bravo" on a session: at most one per user and session. */
+export const workoutLikes = pgTable('workout_likes', {
+  workoutId: integer().notNull().references(() => workouts.id, { onDelete: 'cascade' }),
+  userId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  primaryKey({ columns: [t.workoutId, t.userId] }),
 ])
 
 // ---------------------------------------------------------------------------
