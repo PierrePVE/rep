@@ -1,8 +1,9 @@
 <!--
   Detail of a finished session, from the history. Everything stays editable
   after the fact, with the same cards as the logging screen: rename it, write
-  notes, add, replace or remove its photo, add or remove exercises, fix, add
-  or delete sets. It can also be deleted. A session still in progress is sent to the logging screen instead.
+  notes, add, replace or remove its photo, choose whether followers see it,
+  add or remove exercises, fix, add or delete sets. It can also be deleted.
+  A session still in progress is sent to the logging screen instead.
 -->
 <script setup lang="ts">
 import type { CurrentWorkout } from '~/composables/useCurrentWorkout'
@@ -107,6 +108,36 @@ async function saveNotes() {
   }
 }
 
+// --- Visibility in the social feed ---
+
+const { user } = useUserSession()
+// The demo account has no feed, so the switch would mean nothing there.
+const showVisibility = computed(() => user.value?.role !== 'demo')
+const savingVisibility = ref(false)
+
+/**
+ * Shows or hides the session from followers. Saved at once, like a switch
+ * in the phone's settings; put back if the call fails.
+ *
+ * @param visible - true for followers, false for private.
+ */
+async function setVisible(visible: boolean) {
+  if (!workout.value) return
+  const previous = workout.value.visibility
+  workout.value.visibility = visible ? 'followers' : 'private'
+  savingVisibility.value = true
+  try {
+    await $fetch(`/api/workouts/${id}`, { method: 'PATCH', body: { visibility: workout.value.visibility } })
+  }
+  catch (e) {
+    workout.value.visibility = previous
+    toast.add({ title: apiErrorMessage(e), color: 'error' })
+  }
+  finally {
+    savingVisibility.value = false
+  }
+}
+
 // --- Exercises ---
 
 const addOpen = ref(false)
@@ -167,6 +198,15 @@ async function onDelete() {
       </div>
 
       <WorkoutPhoto v-model:photo-url="workout.photoUrl" :workout-id="workout.id" />
+
+      <USwitch
+        v-if="showVisibility"
+        :model-value="workout.visibility === 'followers'"
+        label="Visible par mes abonnés"
+        :description="workout.visibility === 'followers' ? 'Elle apparaît dans leur feed.' : 'Séance privée : vous seul la voyez.'"
+        :loading="savingVisibility"
+        @update:model-value="setVisible"
+      />
 
       <NameModal
         v-model:open="renameOpen"
