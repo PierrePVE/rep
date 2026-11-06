@@ -3,8 +3,15 @@
   config (toasts, tooltips, overlays) to every component below it.
   <NuxtLayout> wraps each page in layouts/default.vue (bottom tab bar).
 -->
+<script setup lang="ts">
+// The app is French-only: this translates the built-in texts of Nuxt UI
+// (close buttons, empty search results...) and makes number fields show
+// decimals with a comma ("42,5"), as the rest of the app does.
+import { fr } from '@nuxt/ui/locale'
+</script>
+
 <template>
-  <UApp>
+  <UApp :locale="fr">
     <NuxtRouteAnnouncer />
     <NuxtLayout>
       <NuxtPage />
