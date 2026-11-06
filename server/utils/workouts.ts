@@ -12,7 +12,8 @@ import { programExercises, workouts } from '../db/schema'
  *
  * @param userId - Owner of the workout: other users' workouts are never found.
  * @param workoutId - The workout to load; omitted, loads the one in progress.
- * @returns The workout tree, or null if there is none. `plan` lists the
+ * @returns The workout tree, or null if there is none. `photoUrl` is the
+ *   URL of its photo, null when it has none. `plan` lists the
  *   targets (sets, rep range, RPE, rest) of the program day, empty for a free
  *   session: the page matches them to the exercises by `exerciseId`, since a
  *   workout exercise keeps no link to the planned one (the program may change
@@ -29,6 +30,8 @@ export async function loadWorkout(userId: number, workoutId?: number) {
       workoutId === undefined ? isNull(workouts.endedAt) : eq(workouts.id, workoutId),
     ),
     with: {
+      // Only the version: the bytes are served by GET /api/workouts/:id/photo.
+      photo: { columns: { updatedAt: true } },
       exercises: {
         orderBy: (we, { asc }) => [asc(we.position)],
         with: {
@@ -59,5 +62,6 @@ export async function loadWorkout(userId: number, workoutId?: number) {
         .where(eq(programExercises.programDayId, workout.programDayId))
         .orderBy(programExercises.position)
 
-  return { ...workout, plan }
+  const { photo, ...rest } = workout
+  return { ...rest, photoUrl: photoUrl(workout.id, photo?.updatedAt ?? null), plan }
 }

@@ -6,7 +6,7 @@
  * Query: `?limit=` (1-50, default 20), `?cursor=` the id of the last session
  * of the previous page.
  * Returns: { items: [{ id, name, startedAt, endedAt, exerciseCount, setCount,
- *   volumeKg }], nextCursor }, `nextCursor` null on the last page.
+ *   volumeKg, photoUrl }], nextCursor }, `nextCursor` null on the last page.
  * `volumeKg` is the total weight × reps of the session, warm-ups left out
  * (they would inflate it without being real work); bodyweight sets count 0.
  * Errors: 401 if not logged in, 400 if the query is invalid.
@@ -43,6 +43,9 @@ export default defineEventHandler(async (event) => {
         JOIN workout_exercises we ON we.id = s.workout_exercise_id
         WHERE we.workout_id = workouts.id AND s.type <> 'warmup'
       )`,
+      photoUpdatedAt: sql<string | null>`(
+        SELECT p.updated_at FROM workout_photos p WHERE p.workout_id = workouts.id
+      )`,
     })
     .from(workouts)
     .where(and(
@@ -63,7 +66,10 @@ export default defineEventHandler(async (event) => {
     // One extra row tells whether another page exists, without a count query.
     .limit(limit + 1)
 
-  const items = rows.slice(0, limit)
+  const items = rows.slice(0, limit).map(({ photoUpdatedAt, ...w }) => ({
+    ...w,
+    photoUrl: photoUrl(w.id, photoUpdatedAt),
+  }))
   return {
     items,
     nextCursor: rows.length > limit ? items.at(-1)!.id : null,
