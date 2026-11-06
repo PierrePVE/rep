@@ -9,8 +9,8 @@ Application web mobile de suivi de musculation : programmes d'entraînement, sai
 **Disponibles**
 
 - **Comptes** : inscription, connexion par email et mot de passe, compte démo en un clic, page d'administration des comptes.
-- **Programmes** : plusieurs programmes par utilisateur, dont un actif ; séances (jusqu'à 7, dans l'ordre de rotation) ; exercices planifiés avec séries, fourchette de répétitions, RPE cible, repos et notes ; réordonnancement.
-- **Bibliothèque d'exercices** : 115 exercices de départ par compte, recherche insensible aux accents, création, modification, archivage.
+- **Programmes** : plusieurs programmes par utilisateur, dont un actif ; séances (jusqu'à 7, dans l'ordre de rotation) ; exercices planifiés avec séries, fourchette de répétitions, RPE cible, repos et notes ; réordonnancement ; partage par lien (comptes personnels) avec aperçu et import d'une copie.
+- **Bibliothèque d'exercices** : 115 exercices de départ par compte, recherche insensible aux accents, création (aussi directement depuis les sélecteurs d'exercice), modification, archivage.
 - **Séance en cours** : démarrage depuis un jour du programme (le prochain jour de la rotation est suggéré) ou en séance libre ; saisie des séries (poids, répétitions, RPE, échauffement / dégressive), préremplies depuis la série précédente ou la dernière séance ; rappel « la dernière fois » et records à battre sous chaque exercice ; badge et notification de record personnel ; minuteur de repos optionnel.
 - **Historique** : séances par mois avec durée et volume, détail modifiable après coup (séries, exercices, nom, notes), suppression.
 - **Statistiques** : fiche par exercice (records, record de répétitions par charge, courbe du 1RM estimé, volume par séance) ; tableau de bord (séances de la semaine sur l'objectif, semaines d'affilée, total soulevé, calendrier de présence du mois, séries par muscle, records récents).
