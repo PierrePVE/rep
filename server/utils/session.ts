@@ -65,7 +65,7 @@ export async function validateSession(token: string): Promise<{ user: User, rene
   const [row] = await db
     .select({
       expiresAt: sessions.expiresAt,
-      user: { id: users.id, email: users.email, role: users.role },
+      user: { id: users.id, email: users.email, role: users.role, username: users.username },
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))

@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     [user] = await db
       .insert(users)
       .values({ email, passwordHash: await hashPassword(password) })
-      .returning({ id: users.id, email: users.email, role: users.role })
+      .returning({ id: users.id, email: users.email, role: users.role, username: users.username })
   }
   catch (error) {
     if (isUniqueViolation(error)) {

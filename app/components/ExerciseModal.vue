@@ -8,6 +8,8 @@
   - title: modal title (also its accessible name, so it is required).
   - submitLabel: text of the submit button.
   - exercise: the exercise being edited; omitted when creating.
+  - initialName: name to start a new exercise with (e.g. what was typed in
+    a search field); ignored when editing.
   - save: performs the API call with the validated input. It must throw on
     failure (as $fetch does); the modal then stays open with the message.
   v-model:open: whether the modal is shown.
@@ -20,6 +22,7 @@ const props = defineProps<{
   title: string
   submitLabel: string
   exercise?: ExerciseInput | null
+  initialName?: string
   save: (input: ExerciseInput) => Promise<void>
 }>()
 
@@ -39,7 +42,7 @@ const equipmentItems = EQUIPMENTS.map(value => ({ label: EQUIPMENT_LABELS[value]
  */
 function initialState() {
   return {
-    name: props.exercise?.name ?? '',
+    name: props.exercise?.name ?? props.initialName ?? '',
     muscleGroup: props.exercise?.muscleGroup,
     equipment: props.exercise?.equipment,
   }

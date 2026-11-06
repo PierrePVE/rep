@@ -24,6 +24,9 @@
  * - `programs`          : a training program (e.g. "PPL"), one active per user.
  * - `program_days`      : one session of a program (e.g. "Push A"), in rotation order.
  * - `program_exercises` : a planned exercise of a day, with its targets (sets, reps...).
+ * - `workout_photos`    : the optional photo of a session (one per workout).
+ * - `follows`           : who follows whom, as a request until accepted.
+ * - `workout_likes`     : the "bravo" a user gives to a session in the feed.
  *
  * Ownership: only `exercises`, `workouts` and `programs` carry a `userId`.
  * Workout exercises and sets belong to a user through their workout, program
@@ -40,14 +43,18 @@
  * (see docs/DATA_MODEL.md), so there is no `prs` table.
  */
 import { EQUIPMENTS, MUSCLE_GROUPS } from '../../shared/utils/exercises'
+import { SET_TYPES } from '../../shared/utils/sets'
+import { FOLLOW_STATUSES, USERNAME_PATTERN_SOURCE, WORKOUT_VISIBILITIES } from '../../shared/utils/social'
 import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   numeric,
   pgEnum,
+  primaryKey,
   pgTable,
   serial,
   text,
@@ -84,7 +91,13 @@ export const equipment = pgEnum('equipment', EQUIPMENTS)
  *             tagged) by the "last time" display and the prefill, so a lighter
  *             drop set never reads as a regression.
  */
-export const setType = pgEnum('set_type', ['normal', 'warmup', 'drop'])
+export const setType = pgEnum('set_type', SET_TYPES)
+
+/** Follow request state, see FOLLOW_STATUSES. */
+export const followStatus = pgEnum('follow_status', FOLLOW_STATUSES)
+
+/** Who sees a finished session, see WORKOUT_VISIBILITIES. */
+export const workoutVisibility = pgEnum('workout_visibility', WORKOUT_VISIBILITIES)
 
 // ---------------------------------------------------------------------------
 // Auth tables
@@ -100,8 +113,15 @@ export const users = pgTable('users', {
   // hashPassword), which embeds its own salt and parameters.
   passwordHash: text().notNull(),
   role: userRole().notNull().default('user'),
+  // Public name in the social feed: the email is never shown to other users.
+  // Nullable: accounts created before the feed have none, and the social
+  // pages ask for it before anything else.
+  username: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }, t => [
+  // Already lowercase (CHECK below), so a plain unique index is enough.
+  uniqueIndex('users_username_uq').on(t.username),
+  check('users_username_ck', sql.raw(`username IS NULL OR username ~ '${USERNAME_PATTERN_SOURCE}'`)),
   // On lower(email) rather than email, so "Pierre@x.com" and "pierre@x.com"
   // cannot become two accounts.
   uniqueIndex('users_email_uq').on(sql`lower(email)`),
@@ -173,10 +193,17 @@ export const programs = pgTable('programs', {
   userId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text().notNull(),
   active: boolean().notNull().default(false),
+  // Secret of the share link (/programs/shared/<token>), null while the
+  // program is not shared. Kept in clear, unlike session tokens: the owner
+  // must be able to see and copy the link again, and it only gives a
+  // logged-in user a read-only view and a copy, never write access.
+  shareToken: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }, t => [
   // Also serves "list my programs" (it starts with user_id).
   uniqueIndex('programs_user_name_uq').on(t.userId, t.name),
+  // Looks up a shared program by its link, and makes two links never collide.
+  uniqueIndex('programs_share_token_uq').on(t.shareToken),
   // At most ONE active program per user, same partial-index trick as
   // `workouts_one_in_progress_uq`.
   uniqueIndex('programs_one_active_uq').on(t.userId).where(sql`active`),
@@ -206,7 +233,8 @@ export const programExercises = pgTable('program_exercises', {
   id: serial().primaryKey(),
   programDayId: integer().notNull().references(() => programDays.id, { onDelete: 'cascade' }),
   // 'no action' for the same reason as workout_exercises.exerciseId: exercises
-  // are archived, not deleted, and a user deletion cascades through both paths.
+  // are archived, not deleted. A user deletion must remove programs first
+  // (see DELETE /api/admin/users/:id).
   exerciseId: integer().notNull().references(() => exercises.id, { onDelete: 'no action' }),
   position: integer().notNull(), // order inside the day (0, 1, 2...)
   targetSets: integer().notNull(),
@@ -239,6 +267,7 @@ export const workouts = pgTable('workouts', {
   startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   endedAt: timestamp({ withTimezone: true }),
   notes: text(),
+  visibility: workoutVisibility().notNull().default('followers'),
 }, t => [
   // History list and stats always filter by user and sort by date.
   index('workouts_user_started_at_idx').on(t.userId, t.startedAt),
@@ -258,11 +287,10 @@ export const workoutExercises = pgTable('workout_exercises', {
   id: serial().primaryKey(),
   // Deleting a session deletes its exercises (and, in cascade, their sets).
   workoutId: integer().notNull().references(() => workouts.id, { onDelete: 'cascade' }),
-  // 'no action' and not 'restrict': both refuse to delete an exercise that has
-  // history, but 'restrict' checks immediately, while 'no action' checks at the
-  // end of the statement. Deleting a user cascades to BOTH exercises and
-  // workouts; with 'restrict' that could fail depending on which cascade runs
-  // first, with 'no action' the referencing rows are gone by the time it checks.
+  // Refuses to delete an exercise that has history (exercises are archived).
+  // A user deletion cascades to both exercises and workouts, but Postgres may
+  // check this key before the workout cascade has run, so the deletion removes
+  // workouts and programs first (see DELETE /api/admin/users/:id).
   exerciseId: integer().notNull().references(() => exercises.id, { onDelete: 'no action' }),
   position: integer().notNull(), // order inside the session (0, 1, 2...)
   notes: text(),
@@ -294,6 +322,63 @@ export const sets = pgTable('sets', {
   check('sets_weight_ck', sql`weight_kg BETWEEN 0 AND 1000`),
   // rpe * 2 must be a whole number, i.e. steps of 0.5 (7, 7.5, 8...).
   check('sets_rpe_ck', sql`rpe IS NULL OR (rpe BETWEEN 1 AND 10 AND rpe * 2 = trunc(rpe * 2))`),
+])
+
+/**
+ * Postgres `bytea` column read and written as a Node Buffer. Drizzle has no
+ * built-in bytea type for pg-core.
+ */
+const bytea = customType<{ data: Buffer, driverData: Buffer }>({
+  dataType: () => 'bytea',
+})
+
+/**
+ * The photo of a session, Strava-style, taken at the end or added later.
+ * Its own table rather than a column of `workouts`, so that listing workouts
+ * never drags the image bytes along; the primary key on workoutId allows a
+ * single photo per session (replacing it is an upsert).
+ *
+ * Stored in the database on purpose (user's choice, no blob store to set up):
+ * the client shrinks the picture to a few hundred KB before upload, and the
+ * CHECK caps the size so one row can never bloat the database.
+ */
+export const workoutPhotos = pgTable('workout_photos', {
+  workoutId: integer().primaryKey().references(() => workouts.id, { onDelete: 'cascade' }),
+  data: bytea().notNull(),
+  mimeType: text().notNull(),
+  // Changes on every replacement: the photo URL carries it (?v=...), so the
+  // browser cache never shows the previous picture.
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, () => [
+  check('workout_photos_size_ck', sql`octet_length(data) BETWEEN 1 AND 1048576`),
+  check('workout_photos_mime_ck', sql`mime_type IN ('image/jpeg', 'image/webp')`),
+])
+
+/**
+ * Who follows whom. A row starts `pending` and becomes `accepted` when the
+ * followed user says yes; refusing or unfollowing deletes it. One row per
+ * pair (primary key), so a second request is a no-op.
+ */
+export const follows = pgTable('follows', {
+  followerId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  followeeId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: followStatus().notNull().default('pending'),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  primaryKey({ columns: [t.followerId, t.followeeId] }),
+  // The primary key serves "whom do I follow"; this one serves "who follows
+  // me" and the pending requests list.
+  index('follows_followee_idx').on(t.followeeId, t.status),
+  check('follows_not_self_ck', sql`follower_id <> followee_id`),
+])
+
+/** A "bravo" on a session: at most one per user and session. */
+export const workoutLikes = pgTable('workout_likes', {
+  workoutId: integer().notNull().references(() => workouts.id, { onDelete: 'cascade' }),
+  userId: integer().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  primaryKey({ columns: [t.workoutId, t.userId] }),
 ])
 
 // ---------------------------------------------------------------------------
@@ -339,6 +424,11 @@ export const workoutsRelations = relations(workouts, ({ one, many }) => ({
   user: one(users, { fields: [workouts.userId], references: [users.id] }),
   programDay: one(programDays, { fields: [workouts.programDayId], references: [programDays.id] }),
   exercises: many(workoutExercises),
+  photo: one(workoutPhotos),
+}))
+
+export const workoutPhotosRelations = relations(workoutPhotos, ({ one }) => ({
+  workout: one(workouts, { fields: [workoutPhotos.workoutId], references: [workouts.id] }),
 }))
 
 export const workoutExercisesRelations = relations(workoutExercises, ({ one, many }) => ({
@@ -380,4 +470,3 @@ export type NewWorkoutExercise = typeof workoutExercises.$inferInsert
 // Not named `Set`: it would shadow the built-in JavaScript Set.
 export type WorkoutSet = typeof sets.$inferSelect
 export type NewWorkoutSet = typeof sets.$inferInsert
-export type SetType = (typeof setType.enumValues)[number]

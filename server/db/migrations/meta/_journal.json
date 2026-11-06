@@ -15,6 +15,27 @@
       "when": 1791560938760,
       "tag": "0001_add_programs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793974490724,
+      "tag": "0002_add_program_share_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793976155429,
+      "tag": "0003_add_workout_photos",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793976622045,
+      "tag": "0004_add_social",
+      "breakpoints": true
     }
   ]
 }

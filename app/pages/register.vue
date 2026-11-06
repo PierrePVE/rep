@@ -46,7 +46,8 @@ function onSubmit(event: FormSubmitEvent<RegisterInput>) {
 
     <p class="text-center text-sm text-muted">
       Déjà un compte ?
-      <ULink to="/login" class="font-medium text-primary">
+      <!-- Keeps ?redirect= when switching to the login form. -->
+      <ULink :to="{ path: '/login', query: $route.query }" class="font-medium text-primary">
         Se connecter
       </ULink>
     </p>

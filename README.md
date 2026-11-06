@@ -9,15 +9,18 @@ Application web mobile de suivi de musculation : programmes d'entraînement, sai
 **Disponibles**
 
 - **Comptes** : inscription, connexion par email et mot de passe, compte démo en un clic, page d'administration des comptes.
-- **Programmes** : plusieurs programmes par utilisateur, dont un actif ; séances (jusqu'à 7, dans l'ordre de rotation) ; exercices planifiés avec séries, fourchette de répétitions, RPE cible, repos et notes ; réordonnancement.
-- **Bibliothèque d'exercices** : 115 exercices de départ par compte, recherche insensible aux accents, création, modification, archivage.
+- **Programmes** : plusieurs programmes par utilisateur, dont un actif ; séances (jusqu'à 7, dans l'ordre de rotation) ; exercices planifiés avec séries, fourchette de répétitions, RPE cible, repos et notes ; réordonnancement ; partage par lien (comptes personnels) avec aperçu et import d'une copie.
+- **Bibliothèque d'exercices** : 115 exercices de départ par compte, recherche insensible aux accents, création (aussi directement depuis les sélecteurs d'exercice), modification, archivage.
+- **Séance en cours** : démarrage depuis un jour du programme (le prochain jour de la rotation est suggéré) ou en séance libre ; saisie des séries (poids, répétitions, RPE, échauffement / dégressive), préremplies depuis la série précédente ou la dernière séance ; rappel « la dernière fois » et records à battre sous chaque exercice ; badge et notification de record personnel ; minuteur de repos optionnel.
+- **Historique** : séances par mois avec durée et volume, détail modifiable après coup (séries, exercices, nom, notes), suppression ; photo de séance (prise ou choisie à la fin, compressée dans le navigateur, stockée dans la base).
+- **Feed social** (comptes personnels) : pseudo public (l'email reste privé), recherche de membres, abonnements sur demande à accepter ou refuser ; le feed montre ses séances et celles de ses abonnements (durée, exercices, volume, records battus, photo), avec le détail des séries en lecture seule et un bouton « Bravo » ; chaque séance peut être rendue privée.
+- **Statistiques** : fiche par exercice (records, record de répétitions par charge, courbe du 1RM estimé, volume par séance) ; tableau de bord (séances de la semaine sur l'objectif, semaines d'affilée, total soulevé, calendrier de présence du mois, séries par muscle, records récents).
+- **Application installable (PWA)** : icône sur l'écran d'accueil, plein écran, fichiers de l'application en cache.
 
 **À venir**
 
-- Saisie d'une séance en cours (poids, répétitions, RPE, échauffement / drop set), préremplie depuis la série précédente.
-- Calcul du 1RM estimé et détection des records personnels.
-- Historique des séances, statistiques et graphiques par exercice.
-- Installation sur téléphone (PWA) et déploiement.
+- Déploiement (Neon + Vercel).
+- Saisie hors-ligne, modèles de séance, poids de corps, export (V2).
 
 ## Stack
 
@@ -59,7 +62,7 @@ Toutes sont listées dans [`.env.example`](.env.example). Le fichier `.env` n'es
 | Commande | Rôle |
 |---|---|
 | `npm run dev` | Serveur de développement |
-| `npm run build` / `npm run preview` | Build de production et prévisualisation |
+| `npm run build` / `npm run preview` | Build de production et prévisualisation. Le service worker de la PWA n'existe qu'en build : c'est ici qu'on le teste, pas avec `npm run dev`. |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | Vérification TypeScript (`nuxi typecheck`) |
 | `npm test` | Tests Vitest |
@@ -68,6 +71,7 @@ Toutes sont listées dans [`.env.example`](.env.example). Le fichier `.env` n'es
 | `npm run db:studio` | Explorateur de la base (Drizzle Studio) |
 | `npm run db:seed` | Crée les comptes admin et démo avec le catalogue de départ. Idempotent : un compte existant n'est pas modifié. |
 | `npm run db:sync-exercises` | Ajoute à **tous** les comptes existants les exercices de départ qui leur manquent. À relancer après un agrandissement du catalogue. N'ajoute que, ne modifie ni ne supprime rien. |
+| `npm run pwa:icons` | Régénère les icônes PNG de la PWA depuis `public/favicon.svg` (`pwa-assets.config.ts`). À relancer quand le logo change. |
 | `npm run wger:import` | Régénère `server/db/wgerExercises.json` depuis wger (voir plus bas) |
 
 ## Structure

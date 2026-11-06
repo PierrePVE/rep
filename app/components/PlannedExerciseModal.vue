@@ -7,7 +7,6 @@
   Props:
   - title: modal title (also its accessible name, so it is required).
   - submitLabel: text of the submit button.
-  - exercises: the user's catalogue, for the picker (GET /api/exercises).
   - planned: the planned exercise being edited; omitted when adding. In edit
     mode the exercise cannot be changed (the PATCH route refuses it), so its
     name is shown read-only instead of the picker.
@@ -34,7 +33,6 @@ interface PlannedExercise {
 const props = defineProps<{
   title: string
   submitLabel: string
-  exercises: Array<{ id: number, name: string }>
   planned?: PlannedExercise | null
   save: (input: ProgramExerciseInput) => Promise<void>
 }>()
@@ -114,17 +112,8 @@ async function onSubmit(event: FormSubmitEvent<ProgramExerciseInput>) {
 
         <UFormField label="Exercice" name="exerciseId">
           <UInput v-if="planned" :model-value="planned.exercise.name" disabled class="w-full" />
-          <!-- Searchable: the catalogue holds dozens of exercises. -->
-          <USelectMenu
-            v-else
-            v-model="state.exerciseId"
-            :items="exercises"
-            value-key="id"
-            label-key="name"
-            placeholder="Choisir un exercice"
-            :search-input="{ placeholder: 'Rechercher…' }"
-            class="w-full"
-          />
+          <!-- Searchable, and creates the exercise when it is missing. -->
+          <ExercisePicker v-else v-model="state.exerciseId" />
         </UFormField>
 
         <div class="grid grid-cols-3 gap-3">

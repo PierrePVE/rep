@@ -17,7 +17,9 @@ export default defineNuxtRouteMiddleware((to) => {
     return loggedIn.value ? navigateTo('/') : undefined
   }
   if (!loggedIn.value) {
-    return navigateTo('/login')
+    // Remember where the user was going (e.g. a shared program link), so
+    // the login sends them there instead of the home page.
+    return navigateTo(to.fullPath === '/' ? '/login' : { path: '/login', query: { redirect: to.fullPath } })
   }
   if (to.path.startsWith('/admin') && user.value?.role !== 'admin') {
     return navigateTo('/')

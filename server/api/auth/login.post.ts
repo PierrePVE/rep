@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
   }
 
   await deleteExpiredSessions(user.id)
-  const sessionUser = { id: user.id, email: user.email, role: user.role }
+  const sessionUser = { id: user.id, email: user.email, role: user.role, username: user.username }
   await startSession(event, sessionUser)
   return { user: sessionUser }
 })

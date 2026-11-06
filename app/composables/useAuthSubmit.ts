@@ -2,13 +2,29 @@
 type AuthEndpoint = '/api/auth/login' | '/api/auth/register' | '/api/auth/demo'
 
 /**
+ * Where to go after logging in: the `?redirect=` path set by the auth
+ * middleware, if it is safe, else the home page. Only same-site paths are
+ * accepted: "//evil.com" or "/\evil.com" would be read by the browser as
+ * another site, and a crafted login link must not send the user there.
+ *
+ * @param redirect - The raw query value.
+ * @returns A path of this app.
+ */
+export function safeRedirect(redirect: unknown) {
+  // One leading "/", not followed by another "/" or a "\".
+  return typeof redirect === 'string' && /^\/(?![/\\])/.test(redirect) ? redirect : '/'
+}
+
+/**
  * Shared submit logic of the login / sign-up / demo actions: call the API,
- * refresh the client session, go to the home page, or show the error.
+ * refresh the client session, go to the page the user was heading to (or
+ * the home page), or show the error.
  *
  * @returns `loading` and `error` for the template, and `submit` to run a request.
  */
 export function useAuthSubmit() {
   const { fetch: refreshSession } = useUserSession()
+  const route = useRoute()
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -30,7 +46,7 @@ export function useAuthSubmit() {
       // out) state: refresh it first, or the auth middleware would bounce the
       // navigation back to /login.
       await refreshSession()
-      await navigateTo('/')
+      await navigateTo(safeRedirect(route.query.redirect))
     }
     catch (e) {
       error.value = apiErrorMessage(e)

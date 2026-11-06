@@ -14,6 +14,8 @@ declare module '#auth-utils' {
     // Same values as the `user_role` enum in server/db/schema.ts. Not imported
     // from there: shared/ code must not depend on server code.
     role: 'user' | 'admin' | 'demo'
+    // Public name in the social feed, null until the user picks one.
+    username: string | null
   }
 
   interface SecureSessionData {

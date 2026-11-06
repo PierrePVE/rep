@@ -41,7 +41,10 @@ export async function resolveUser(event: H3Event): Promise<User | null> {
   }
 
   const { user, renewed } = result
-  const stale = session.user?.email !== user.email || session.user?.role !== user.role
+  // username too: it is set after sign-up, from the profile page.
+  const stale = session.user?.email !== user.email
+    || session.user?.role !== user.role
+    || session.user?.username !== user.username
   // Re-writing the cookie also pushes its own expiry date forward, keeping it
   // in sync with the renewed DB session.
   if (renewed || stale) {

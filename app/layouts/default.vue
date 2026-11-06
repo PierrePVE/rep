@@ -13,13 +13,18 @@ async function logout() {
   await navigateTo('/login')
 }
 
-/** Account menu: who is logged in, admin link for the admin, logout. */
+/** Account menu: who is logged in, admin link for the admin, library, community, logout. */
 const accountItems = computed<DropdownMenuItem[][]>(() => [
   [{ label: user.value?.email ?? '', type: 'label' }],
   [
     ...(user.value?.role === 'admin'
       ? [{ label: 'Administration', icon: 'i-lucide-shield', to: '/admin' }]
       : []),
+    { label: 'Bibliothèque d\'exercices', icon: 'i-lucide-library', to: '/exercises' },
+    // Not for the demo account, which has no social features.
+    ...(user.value?.role === 'demo'
+      ? []
+      : [{ label: 'Communauté', icon: 'i-lucide-users', to: '/people' }]),
     { label: 'Se déconnecter', icon: 'i-lucide-log-out', onSelect: logout },
   ],
 ])
@@ -38,6 +43,7 @@ const tabs: Tab[] = [
   { to: '/', label: 'Accueil', icon: 'i-lucide-house' },
   { to: '/workouts/current', label: 'Séance', icon: 'i-lucide-dumbbell' },
   { to: '/workouts', label: 'Historique', icon: 'i-lucide-calendar-days' },
+  { to: '/feed', label: 'Feed', icon: 'i-lucide-newspaper' },
   { to: '/programs', label: 'Programme', icon: 'i-lucide-list' },
 ]
 
@@ -48,10 +54,14 @@ const route = useRoute()
  * We don't rely on NuxtLink's active classes: "/" is a prefix of every path,
  * and "/workouts" is a prefix of "/workouts/current", so several tabs would
  * light up at once. Instead the longest tab route that prefixes the current
- * path wins (so "/workouts/42" still highlights "Historique").
+ * path wins (so "/workouts/42" still highlights "Historique"). The exercise
+ * pages have no tab: they belong with the programs, where they are linked;
+ * profiles and the community page belong with the feed.
  */
 const activeTab = computed(() => {
-  const path = route.path
+  let path = route.path
+  if (path.startsWith('/exercises')) path = '/programs'
+  else if (path.startsWith('/users/') || path === '/people') path = '/feed'
   const matches = tabs.filter(tab =>
     tab.to === '/' ? path === '/' : path === tab.to || path.startsWith(`${tab.to}/`),
   )
@@ -87,7 +97,7 @@ const activeTab = computed(() => {
       class="fixed inset-x-0 bottom-0 z-10 border-t border-default bg-default/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
       aria-label="Navigation principale"
     >
-      <ul class="mx-auto grid h-16 max-w-2xl grid-cols-4">
+      <ul class="mx-auto grid h-16 max-w-2xl grid-cols-5">
         <li v-for="tab in tabs" :key="tab.to">
           <!-- Full-height cell keeps the touch target well above 44px. -->
           <NuxtLink

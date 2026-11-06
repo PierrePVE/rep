@@ -138,21 +138,23 @@ async function toggleArchived(exercise: Exercise) {
 
     <ul v-else class="divide-y divide-default rounded-lg border border-default">
       <li v-for="exercise in filtered" :key="exercise.id" class="flex items-center gap-1 py-1 pr-1 pl-3">
-        <!-- The whole text area opens the editor: a bigger tap target than a
-             pencil icon on a phone. -->
-        <button
-          type="button"
-          class="min-w-0 flex-1 py-1.5 text-left"
-          :aria-label="`Modifier ${exercise.name}`"
-          @click="openEdit(exercise)"
-        >
+        <!-- The whole text area opens the exercise page (records, charts):
+             the most frequent action, so it gets the biggest tap target. -->
+        <NuxtLink :to="`/exercises/${exercise.id}`" class="min-w-0 flex-1 py-1.5">
           <p class="truncate font-medium">
             {{ exercise.name }}
           </p>
           <p class="truncate text-sm text-muted">
             {{ MUSCLE_GROUP_LABELS[exercise.muscleGroup] }} · {{ EQUIPMENT_LABELS[exercise.equipment] }}
           </p>
-        </button>
+        </NuxtLink>
+        <UButton
+          icon="i-lucide-pencil"
+          color="neutral"
+          variant="ghost"
+          :aria-label="`Modifier ${exercise.name}`"
+          @click="openEdit(exercise)"
+        />
         <UButton
           :icon="exercise.archived ? 'i-lucide-archive-restore' : 'i-lucide-archive'"
           color="neutral"

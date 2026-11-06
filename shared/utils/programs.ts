@@ -100,3 +100,27 @@ export type ProgramDayInput = z.infer<typeof programDaySchema>
 export type ProgramExerciseInput = z.infer<typeof programExerciseSchema>
 export type ProgramExerciseUpdateInput = z.infer<typeof programExerciseUpdateSchema>
 export type ReorderInput = z.infer<typeof reorderSchema>
+
+/**
+ * Picks the program day to suggest for the next session. Days follow each
+ * other by `position` (a rotation, not weekdays: training on Monday or on
+ * Tuesday does not change which day comes next), and wrap around after the
+ * last one.
+ *
+ * @param days - Days of the active program, in any order.
+ * @param lastDayId - Day of the user's last finished session in this program,
+ *   or null if none was done yet.
+ * @returns The id of the day after `lastDayId`; the first day when nothing was
+ *   done yet or when `lastDayId` is no longer in the program (deleted since);
+ *   null for a program without days.
+ */
+export function nextProgramDayId(
+  days: Array<{ id: number, position: number }>,
+  lastDayId: number | null,
+): number | null {
+  // Copied before sorting: sort() mutates, and the caller's array is theirs.
+  const ordered = [...days].sort((a, b) => a.position - b.position)
+  const lastIndex = ordered.findIndex(d => d.id === lastDayId)
+  // findIndex gives -1 when not found, so -1 + 1 = 0 also covers that case.
+  return ordered[(lastIndex + 1) % ordered.length]?.id ?? null
+}

@@ -13,7 +13,7 @@ import { users } from '../../db/schema'
 
 export default defineEventHandler(async (event) => {
   const [demo] = await useDb()
-    .select({ id: users.id, email: users.email, role: users.role })
+    .select({ id: users.id, email: users.email, role: users.role, username: users.username })
     .from(users)
     .where(eq(users.role, 'demo'))
     .limit(1)

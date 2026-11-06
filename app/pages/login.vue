@@ -57,7 +57,8 @@ function tryDemo() {
 
     <p class="text-center text-sm text-muted">
       Pas encore de compte ?
-      <ULink to="/register" class="font-medium text-primary">
+      <!-- Keeps ?redirect= when switching to the sign-up form. -->
+      <ULink :to="{ path: '/register', query: $route.query }" class="font-medium text-primary">
         Créer un compte
       </ULink>
     </p>
