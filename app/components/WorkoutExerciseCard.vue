@@ -35,9 +35,7 @@ const { data: lastData } = useFetch(() => `/api/exercises/${props.item.exerciseI
 const last = computed(() => lastData.value?.last ?? null)
 
 /** Date of the last session, e.g. "lun. 27 oct.". */
-const lastDate = computed(() => last.value
-  ? new Date(last.value.startedAt).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-  : '')
+const lastDate = computed(() => last.value ? formatDay(last.value.startedAt) : '')
 
 /**
  * Formats the targets as "3 × 8–12", with a single number when the range is
@@ -49,17 +47,6 @@ const lastDate = computed(() => last.value
 function formatTarget(plan: PlanEntry) {
   const reps = plan.repMin === plan.repMax ? plan.repMin : `${plan.repMin}–${plan.repMax}`
   return plan.targetRpe ? `${plan.targetSets} × ${reps} @ RPE ${plan.targetRpe}` : `${plan.targetSets} × ${reps}`
-}
-
-/**
- * Formats the load of a set: "PDC" (poids du corps) for 0 kg, which is how
- * bodyweight sets are logged, else the weight with a French decimal comma.
- *
- * @param weightKg - Weight of the set.
- * @returns The text to show.
- */
-function formatWeight(weightKg: number) {
-  return weightKg === 0 ? 'PDC' : `${weightKg.toLocaleString('fr-FR')} kg`
 }
 
 // One modal for both modes: `editedSet` is the set being edited, or null when
