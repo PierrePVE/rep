@@ -18,6 +18,17 @@ import type { SetType } from './sets'
  */
 export type PrType = 'max_weight' | 'e1rm' | 'set_volume' | 'rep_max'
 
+/**
+ * Short French labels of the record kinds, for the toast shown when a set
+ * beats one. A Record so that a new PrType fails to compile until labelled.
+ */
+export const PR_TYPE_LABELS: Record<PrType, string> = {
+  max_weight: 'Poids max',
+  e1rm: '1RM estimé',
+  set_volume: 'Volume de série',
+  rep_max: 'Reps max',
+}
+
 /** The fields of a set that the PR rules look at. */
 export interface PrSet {
   weightKg: number

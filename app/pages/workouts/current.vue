@@ -81,29 +81,6 @@ function planFor(exerciseId: number): PlanEntry | undefined {
   return workout.value?.plan.find(p => p.exerciseId === exerciseId)
 }
 
-/**
- * Formats the targets as "3 × 8–12", with a single number when the range is
- * one value ("3 × 5"), as on the program page.
- *
- * @param plan - Targets of the exercise.
- * @returns The text to show.
- */
-function formatTarget(plan: PlanEntry) {
-  const reps = plan.repMin === plan.repMax ? plan.repMin : `${plan.repMin}–${plan.repMax}`
-  return plan.targetRpe ? `${plan.targetSets} × ${reps} @ RPE ${plan.targetRpe}` : `${plan.targetSets} × ${reps}`
-}
-
-/**
- * Formats the load of a set: "PDC" (poids du corps) for 0 kg, which is how
- * bodyweight sets are logged, else the weight with a French decimal comma.
- *
- * @param weightKg - Weight of the set.
- * @returns The text to show.
- */
-function formatWeight(weightKg: number) {
-  return weightKg === 0 ? 'PDC' : `${weightKg.toLocaleString('fr-FR')} kg`
-}
-
 // Finishing is a two-step click, as for deletions elsewhere: a stray tap must
 // not close the session in the middle of training.
 const finishArmed = ref(false)
@@ -191,37 +168,12 @@ async function onFinish() {
         Aucun exercice pour l'instant.
       </p>
 
-      <section
+      <WorkoutExerciseCard
         v-for="item in workout.exercises"
         :key="item.id"
-        class="rounded-lg border border-default"
-      >
-        <header class="border-b border-default p-3">
-          <h2 class="font-medium">
-            {{ item.exercise.name }}
-          </h2>
-          <p class="text-sm text-muted">
-            {{ MUSCLE_GROUP_LABELS[item.exercise.muscleGroup] }}
-            <template v-if="planFor(item.exerciseId)">
-              · Objectif {{ formatTarget(planFor(item.exerciseId)!) }}
-            </template>
-          </p>
-        </header>
-
-        <p v-if="!item.sets.length" class="p-3 text-sm text-muted">
-          Aucune série.
-        </p>
-        <ol v-else class="divide-y divide-default">
-          <li v-for="(set, index) in item.sets" :key="set.id" class="flex items-center gap-3 px-3 py-2 text-sm">
-            <span class="w-5 text-muted">{{ index + 1 }}</span>
-            <span class="font-medium">{{ formatWeight(set.weightKg) }} × {{ set.reps }}</span>
-            <span v-if="set.rpe" class="text-muted">RPE {{ set.rpe.toLocaleString('fr-FR') }}</span>
-            <UBadge v-if="SET_TYPE_LABELS[set.type]" color="neutral" variant="subtle" size="sm">
-              {{ SET_TYPE_LABELS[set.type] }}
-            </UBadge>
-          </li>
-        </ol>
-      </section>
+        :item="item"
+        :plan="planFor(item.exerciseId)"
+      />
 
       <UButton
         :label="finishArmed ? 'Confirmer la fin de la séance' : 'Terminer la séance'"
