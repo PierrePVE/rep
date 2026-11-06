@@ -1,7 +1,7 @@
 <!--
   One exercise of the session in progress, on the logging screen: its name,
   program targets, what was done on it last time and its sets, with the
-  buttons to log, edit and delete sets.
+  buttons to log, edit and delete sets and to remove the exercise.
 
   The set calls go through useCurrentWorkout, whose state is shared, so the
   card changes the session directly instead of emitting events to the page.
@@ -20,7 +20,7 @@ const props = defineProps<{
   plan?: PlanEntry
 }>()
 
-const { addSet, updateSet, removeSet } = useCurrentWorkout()
+const { addSet, updateSet, removeSet, removeExercise } = useCurrentWorkout()
 const toast = useToast()
 
 // Last finished session with this exercise, for the reminder and the prefill.
@@ -125,6 +125,19 @@ async function onSubmit(input: SetInput) {
   announcePrs(edited ? await updateSet(edited.id, input) : await addSet(props.item.id, input))
 }
 
+// Removing the exercise deletes its sets too, so it takes two taps, as the
+// other deletions of the app.
+const removeArmed = ref(false)
+
+/** First tap arms the remove button, the second one removes the exercise. */
+function onRemoveExercise() {
+  if (!removeArmed.value) {
+    removeArmed.value = true
+    return
+  }
+  removeExercise(props.item.id)
+}
+
 /** Deletes the edited set, once the user confirmed it in the modal. */
 function onRemove() {
   if (editedSet.value) removeSet(editedSet.value.id)
@@ -134,9 +147,22 @@ function onRemove() {
 <template>
   <section class="rounded-lg border border-default">
     <header class="border-b border-default p-3">
-      <h2 class="font-medium">
-        {{ item.exercise.name }}
-      </h2>
+      <div class="flex items-start gap-2">
+        <h2 class="min-w-0 flex-1 font-medium">
+          {{ item.exercise.name }}
+        </h2>
+        <!-- Once armed, the button spells out what the next tap does. -->
+        <UButton
+          :icon="removeArmed ? undefined : 'i-lucide-trash-2'"
+          :label="removeArmed ? 'Retirer ?' : undefined"
+          :color="removeArmed ? 'error' : 'neutral'"
+          :variant="removeArmed ? 'solid' : 'ghost'"
+          size="xs"
+          :aria-label="`Retirer ${item.exercise.name} de la séance`"
+          @click="onRemoveExercise"
+          @blur="removeArmed = false"
+        />
+      </div>
       <p class="text-sm text-muted">
         {{ MUSCLE_GROUP_LABELS[item.exercise.muscleGroup] }}
         <template v-if="plan">

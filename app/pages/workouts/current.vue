@@ -1,12 +1,13 @@
 <!--
   Current workout: the main logging screen. Without a session in progress, it
   offers to start one (a day of the active program, or a free session); with
-  one, it shows its exercises and sets and lets the user finish it.
+  one, it shows its exercises and sets, lets the user add exercises outside
+  the plan, and finish it.
 -->
 <script setup lang="ts">
 useHead({ title: 'Séance en cours' })
 
-const { workout, load, start, finish } = useCurrentWorkout()
+const { workout, load, start, finish, addExercise } = useCurrentWorkout()
 const requestFetch = useRequestFetch()
 
 // Through useAsyncData rather than a bare `await load()`: on the first visit
@@ -79,6 +80,34 @@ type PlanEntry = NonNullable<typeof workout.value>['plan'][number]
  */
 function planFor(exerciseId: number): PlanEntry | undefined {
   return workout.value?.plan.find(p => p.exerciseId === exerciseId)
+}
+
+// --- Adding an exercise ---
+
+// The catalogue for the picker. Lazy and client-only: only needed once the
+// user opens the modal, and the logging screen must not wait for it.
+const { data: catalogue } = useFetch('/api/exercises', { lazy: true, server: false, default: () => [] })
+
+const addOpen = ref(false)
+const addedExerciseId = ref<number | undefined>(undefined)
+const adding = ref(false)
+
+/** Opens the picker, cleared of the exercise picked last time. */
+function openAdd() {
+  addedExerciseId.value = undefined
+  addOpen.value = true
+}
+
+/**
+ * Adds the picked exercise at the end of the session. Not optimistic (see
+ * addExercise), so the modal stays open with a spinner until it is saved; on
+ * failure the composable shows a toast and the modal stays open to retry.
+ */
+async function onAddExercise() {
+  if (addedExerciseId.value === undefined) return
+  adding.value = true
+  if (await addExercise(addedExerciseId.value)) addOpen.value = false
+  adding.value = false
 }
 
 // Finishing is a two-step click, as for deletions elsewhere: a stray tap must
@@ -174,6 +203,39 @@ async function onFinish() {
         :item="item"
         :plan="planFor(item.exerciseId)"
       />
+
+      <UButton
+        label="Ajouter un exercice"
+        icon="i-lucide-plus"
+        color="neutral"
+        variant="subtle"
+        block
+        @click="openAdd"
+      />
+
+      <UModal v-model:open="addOpen" title="Ajouter un exercice">
+        <template #body>
+          <div class="space-y-4">
+            <!-- Searchable: the catalogue holds dozens of exercises. -->
+            <USelectMenu
+              v-model="addedExerciseId"
+              :items="catalogue"
+              value-key="id"
+              label-key="name"
+              placeholder="Choisir un exercice"
+              :search-input="{ placeholder: 'Rechercher…' }"
+              class="w-full"
+            />
+            <UButton
+              label="Ajouter"
+              block
+              :disabled="addedExerciseId === undefined"
+              :loading="adding"
+              @click="onAddExercise"
+            />
+          </div>
+        </template>
+      </UModal>
 
       <UButton
         :label="finishArmed ? 'Confirmer la fin de la séance' : 'Terminer la séance'"
