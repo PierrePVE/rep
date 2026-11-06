@@ -45,7 +45,28 @@ export const setSchema = setFields.extend({
 /** Edit a set (PATCH /api/sets/:id): only the sent fields change. */
 export const setUpdateSchema = setFields.partial()
 
+/**
+ * Query of the history list (GET /api/workouts). Cursor pagination rather
+ * than pages: `cursor` is the id of the last session already shown, so a
+ * session finished meanwhile never shifts the list and shows a row twice.
+ * Query values arrive as strings, hence the coercion.
+ */
+export const workoutListQuerySchema = z.object({
+  cursor: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+})
+
+/**
+ * Edit a session after the fact (PATCH /api/workouts/:id): its name and
+ * notes. An empty name or notes field clears it (null) rather than storing "".
+ */
+export const workoutUpdateSchema = z.object({
+  name: z.string().trim().max(50, '50 caractères maximum').transform(v => v || null).nullable().optional(),
+  notes: z.string().trim().max(1000, '1000 caractères maximum').transform(v => v || null).nullable().optional(),
+})
+
 export type StartWorkoutInput = z.infer<typeof startWorkoutSchema>
 export type WorkoutExerciseInput = z.infer<typeof workoutExerciseSchema>
 export type SetInput = z.infer<typeof setSchema>
 export type SetUpdateInput = z.infer<typeof setUpdateSchema>
+export type WorkoutUpdateInput = z.infer<typeof workoutUpdateSchema>
