@@ -2,7 +2,8 @@
   Current workout: the main logging screen. Without a session in progress, it
   offers to start one (a day of the active program, or a free session); with
   one, it shows its exercises and sets, lets the user add exercises outside
-  the plan, and finish it.
+  the plan, and finish it. A rest timer (which the user can turn off) runs
+  after each logged set.
 -->
 <script setup lang="ts">
 useHead({ title: 'Séance en cours' })
@@ -82,6 +83,12 @@ function planFor(exerciseId: number): PlanEntry | undefined {
   return workout.value?.plan.find(p => p.exerciseId === exerciseId)
 }
 
+// --- Rest timer ---
+
+const restTimer = useRestTimer()
+// The saved on/off choice lives in localStorage, only readable in the browser.
+onMounted(restTimer.restoreSetting)
+
 // --- Adding an exercise ---
 
 // The catalogue for the picker. Lazy and client-only: only needed once the
@@ -124,7 +131,11 @@ async function onFinish() {
   }
   finishArmed.value = false
   finishing.value = true
-  if (await finish()) toast.add({ title: 'Séance terminée', color: 'success' })
+  if (await finish()) {
+    // A rest still running would otherwise show up again in the next session.
+    restTimer.stop()
+    toast.add({ title: 'Séance terminée', color: 'success' })
+  }
   finishing.value = false
 }
 </script>
@@ -188,9 +199,17 @@ async function onFinish() {
         <h1 class="text-2xl font-bold">
           {{ title }}
         </h1>
-        <p class="text-sm text-muted">
-          Commencée à {{ startedAt }}
-        </p>
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm text-muted">
+            Commencée à {{ startedAt }}
+          </p>
+          <USwitch
+            :model-value="restTimer.enabled.value"
+            label="Minuteur de repos"
+            size="sm"
+            @update:model-value="restTimer.setEnabled"
+          />
+        </div>
       </div>
 
       <p v-if="!workout.exercises.length" class="text-muted">
@@ -245,6 +264,10 @@ async function onFinish() {
         :loading="finishing"
         @click="onFinish"
       />
+
+      <!-- Keeps the finish button clear of the timer bar when it shows. -->
+      <div v-if="restTimer.endsAt.value !== null" class="h-16" aria-hidden="true" />
+      <RestTimer />
     </template>
   </div>
 </template>

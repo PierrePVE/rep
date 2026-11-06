@@ -22,6 +22,7 @@ const props = defineProps<{
 
 const { addSet, updateSet, removeSet, removeExercise } = useCurrentWorkout()
 const toast = useToast()
+const restTimer = useRestTimer()
 
 // Last finished session with this exercise, for the reminder and the prefill.
 // Lazy: the card shows at once and the reminder fills in when it arrives,
@@ -122,7 +123,14 @@ function announcePrs(prs: PrType[] | null) {
  */
 async function onSubmit(input: SetInput) {
   const edited = editedSet.value
-  announcePrs(edited ? await updateSet(edited.id, input) : await addSet(props.item.id, input))
+  if (edited) {
+    announcePrs(await updateSet(edited.id, input))
+    return
+  }
+  // Started before the API call: the rest begins when the set is done, not
+  // when the network answers. Only a new set starts it, not a correction.
+  restTimer.start(props.plan?.restSeconds ?? DEFAULT_REST_SECONDS)
+  announcePrs(await addSet(props.item.id, input))
 }
 
 // Removing the exercise deletes its sets too, so it takes two taps, as the
