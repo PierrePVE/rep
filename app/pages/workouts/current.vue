@@ -9,7 +9,8 @@
 <script setup lang="ts">
 useHead({ title: 'Séance en cours' })
 
-const { workout, load, start, finish, addExercise } = useCurrentWorkout()
+const currentWorkout = useCurrentWorkout()
+const { workout, load, start, finish, addExercise } = currentWorkout
 const requestFetch = useRequestFetch()
 
 // Through useAsyncData rather than a bare `await load()`: on the first visit
@@ -211,6 +212,8 @@ async function onFinish() {
         :key="item.id"
         :item="item"
         :plan="planFor(item.exerciseId)"
+        :editor="currentWorkout"
+        live
       />
 
       <UButton

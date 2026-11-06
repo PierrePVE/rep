@@ -1,6 +1,7 @@
 /**
- * State and actions of the session in progress, shared by every page that
- * shows it (the logging screen, later a "resume" card on the home page).
+ * State and actions of a session: the one in progress (useCurrentWorkout,
+ * shared by every page that shows it) or a past one opened from the history
+ * (useWorkoutEditor on the page's own state).
  *
  * Set edits are optimistic: the change shows at once and the API call runs
  * behind it, since at the gym the network is often slow and logging a set
@@ -29,20 +30,18 @@ export type CurrentWorkout = Omit<ApiWorkout, 'exercises'> & { exercises: Workou
 let nextTempId = -1
 
 /**
- * Gives access to the session in progress.
+ * Editing actions on a session held in `workout`: add or remove exercises,
+ * log, edit or delete sets. They work the same on the session in progress and
+ * on a finished one (the API allows both, so the history can be fixed).
  *
- * Must be called from a component's setup (it uses useState, useToast and
- * useRequestFetch).
+ * Must be called from a component's setup (it uses useToast).
  *
- * @returns The shared `workout` state (undefined until loaded, null when no
- *   session is in progress) and the actions that change it.
+ * @param workout - State holding the session; the actions do nothing while it
+ *   is null or undefined.
+ * @returns The actions. Each one changes `workout` in place.
  */
-export function useCurrentWorkout() {
-  const workout = useState<CurrentWorkout | null | undefined>('current-workout', () => undefined)
+export function useWorkoutEditor(workout: Ref<CurrentWorkout | null | undefined>) {
   const toast = useToast()
-  // Unlike $fetch, forwards the session cookie when the page renders on the
-  // server; without it, a server-side load would answer 401.
-  const requestFetch = useRequestFetch()
 
   /** Shows the API error in a toast (the messages are written for the user). */
   function notifyError(error: unknown) {
@@ -81,53 +80,6 @@ export function useCurrentWorkout() {
    */
   function renumber(items: { position: number }[]) {
     items.forEach((item, index) => { item.position = index })
-  }
-
-  /** Loads (or reloads) the session in progress from the API. */
-  async function load() {
-    const { workout: current } = await requestFetch('/api/workouts/current')
-    workout.value = current
-  }
-
-  /**
-   * Starts a session, or resumes the one in progress (the API never starts a
-   * second one).
-   *
-   * @param programDayId - Program day to prefill from; omitted for a free session.
-   * @returns Whether the session is now in progress.
-   */
-  async function start(programDayId?: number) {
-    try {
-      const { workout: started } = await $fetch('/api/workouts', {
-        method: 'POST',
-        body: { programDayId: programDayId ?? null },
-      })
-      workout.value = started
-      return true
-    }
-    catch (error) {
-      notifyError(error)
-      return false
-    }
-  }
-
-  /**
-   * Ends the session in progress. Not optimistic: the page navigates away
-   * right after, so it must know the end was really saved.
-   *
-   * @returns Whether the session was ended.
-   */
-  async function finish() {
-    if (!workout.value) return false
-    try {
-      await $fetch(`/api/workouts/${workout.value.id}/finish`, { method: 'POST' })
-      workout.value = null
-      return true
-    }
-    catch (error) {
-      notifyError(error)
-      return false
-    }
   }
 
   /**
@@ -292,5 +244,80 @@ export function useCurrentWorkout() {
     }
   }
 
-  return { workout, load, start, finish, addExercise, removeExercise, addSet, updateSet, removeSet }
+  return { addExercise, removeExercise, addSet, updateSet, removeSet }
+}
+
+/** The editing actions, as passed to WorkoutExerciseCard. */
+export type WorkoutEditor = ReturnType<typeof useWorkoutEditor>
+
+/**
+ * Gives access to the session in progress.
+ *
+ * Must be called from a component's setup (it uses useState, useToast and
+ * useRequestFetch).
+ *
+ * @returns The shared `workout` state (undefined until loaded, null when no
+ *   session is in progress) and the actions that change it.
+ */
+export function useCurrentWorkout() {
+  const workout = useState<CurrentWorkout | null | undefined>('current-workout', () => undefined)
+  const editor = useWorkoutEditor(workout)
+  const toast = useToast()
+  // Unlike $fetch, forwards the session cookie when the page renders on the
+  // server; without it, a server-side load would answer 401.
+  const requestFetch = useRequestFetch()
+
+  /** Shows the API error in a toast (the messages are written for the user). */
+  function notifyError(error: unknown) {
+    toast.add({ title: apiErrorMessage(error), color: 'error' })
+  }
+
+  /** Loads (or reloads) the session in progress from the API. */
+  async function load() {
+    const { workout: current } = await requestFetch('/api/workouts/current')
+    workout.value = current
+  }
+
+  /**
+   * Starts a session, or resumes the one in progress (the API never starts a
+   * second one).
+   *
+   * @param programDayId - Program day to prefill from; omitted for a free session.
+   * @returns Whether the session is now in progress.
+   */
+  async function start(programDayId?: number) {
+    try {
+      const { workout: started } = await $fetch('/api/workouts', {
+        method: 'POST',
+        body: { programDayId: programDayId ?? null },
+      })
+      workout.value = started
+      return true
+    }
+    catch (error) {
+      notifyError(error)
+      return false
+    }
+  }
+
+  /**
+   * Ends the session in progress. Not optimistic: the page navigates away
+   * right after, so it must know the end was really saved.
+   *
+   * @returns Whether the session was ended.
+   */
+  async function finish() {
+    if (!workout.value) return false
+    try {
+      await $fetch(`/api/workouts/${workout.value.id}/finish`, { method: 'POST' })
+      workout.value = null
+      return true
+    }
+    catch (error) {
+      notifyError(error)
+      return false
+    }
+  }
+
+  return { workout, load, start, finish, ...editor }
 }

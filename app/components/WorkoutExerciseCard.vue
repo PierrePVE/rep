@@ -1,26 +1,33 @@
 <!--
-  One exercise of the session in progress, on the logging screen: its name,
-  program targets, what was done on it last time and its sets, with the
-  buttons to log, edit and delete sets and to remove the exercise.
+  One exercise of a session: its name, program targets and sets, with the
+  buttons to log, edit and delete sets and to remove the exercise. Used on the
+  logging screen (the session in progress) and on the history detail page.
 
-  The set calls go through useCurrentWorkout, whose state is shared, so the
-  card changes the session directly instead of emitting events to the page.
+  The calls go through the `editor` actions, which change the session state
+  in place, so the card needs no events back to the page.
 
   Props:
-  - item: the workout exercise, with its sets (from useCurrentWorkout).
+  - item: the workout exercise, with its sets.
   - plan: its program targets, or undefined for an exercise outside the plan.
+  - editor: the editing actions of the session (useCurrentWorkout or
+    useWorkoutEditor).
+  - live: true for the session in progress. Only then does the card show what
+    was done last time (for a past session, "last time" would be a later one)
+    and start the rest timer after a new set.
 -->
 <script setup lang="ts">
-import type { CurrentWorkout, WorkoutExercise, WorkoutSet } from '~/composables/useCurrentWorkout'
+import type { CurrentWorkout, WorkoutEditor, WorkoutExercise, WorkoutSet } from '~/composables/useCurrentWorkout'
 
 type PlanEntry = CurrentWorkout['plan'][number]
 
 const props = defineProps<{
   item: WorkoutExercise
   plan?: PlanEntry
+  editor: WorkoutEditor
+  live?: boolean
 }>()
 
-const { addSet, updateSet, removeSet, removeExercise } = useCurrentWorkout()
+const { addSet, updateSet, removeSet, removeExercise } = props.editor
 const toast = useToast()
 const restTimer = useRestTimer()
 
@@ -28,11 +35,13 @@ const restTimer = useRestTimer()
 // Lazy: the card shows at once and the reminder fills in when it arrives,
 // since it is a hint, not something the logging must wait for. Keyed by
 // exercise, so two cards of the same exercise share one request.
+// `immediate: false` off the logging screen: the request is never sent.
 const { data: lastData } = useFetch(() => `/api/exercises/${props.item.exerciseId}/last`, {
   key: `exercise-last-${props.item.exerciseId}`,
   lazy: true,
+  immediate: props.live,
 })
-const last = computed(() => lastData.value?.last ?? null)
+const last = computed(() => (props.live ? lastData.value?.last ?? null : null))
 
 /** Date of the last session, e.g. "lun. 27 oct.". */
 const lastDate = computed(() => last.value ? formatDay(last.value.startedAt) : '')
@@ -116,7 +125,7 @@ async function onSubmit(input: SetInput) {
   }
   // Started before the API call: the rest begins when the set is done, not
   // when the network answers. Only a new set starts it, not a correction.
-  restTimer.start(props.plan?.restSeconds ?? DEFAULT_REST_SECONDS)
+  if (props.live) restTimer.start(props.plan?.restSeconds ?? DEFAULT_REST_SECONDS)
   announcePrs(await addSet(props.item.id, input))
 }
 
