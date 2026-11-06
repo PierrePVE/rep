@@ -214,7 +214,8 @@ export const programExercises = pgTable('program_exercises', {
   id: serial().primaryKey(),
   programDayId: integer().notNull().references(() => programDays.id, { onDelete: 'cascade' }),
   // 'no action' for the same reason as workout_exercises.exerciseId: exercises
-  // are archived, not deleted, and a user deletion cascades through both paths.
+  // are archived, not deleted. A user deletion must remove programs first
+  // (see DELETE /api/admin/users/:id).
   exerciseId: integer().notNull().references(() => exercises.id, { onDelete: 'no action' }),
   position: integer().notNull(), // order inside the day (0, 1, 2...)
   targetSets: integer().notNull(),
@@ -266,11 +267,10 @@ export const workoutExercises = pgTable('workout_exercises', {
   id: serial().primaryKey(),
   // Deleting a session deletes its exercises (and, in cascade, their sets).
   workoutId: integer().notNull().references(() => workouts.id, { onDelete: 'cascade' }),
-  // 'no action' and not 'restrict': both refuse to delete an exercise that has
-  // history, but 'restrict' checks immediately, while 'no action' checks at the
-  // end of the statement. Deleting a user cascades to BOTH exercises and
-  // workouts; with 'restrict' that could fail depending on which cascade runs
-  // first, with 'no action' the referencing rows are gone by the time it checks.
+  // Refuses to delete an exercise that has history (exercises are archived).
+  // A user deletion cascades to both exercises and workouts, but Postgres may
+  // check this key before the workout cascade has run, so the deletion removes
+  // workouts and programs first (see DELETE /api/admin/users/:id).
   exerciseId: integer().notNull().references(() => exercises.id, { onDelete: 'no action' }),
   position: integer().notNull(), // order inside the session (0, 1, 2...)
   notes: text(),
