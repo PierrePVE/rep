@@ -1,6 +1,7 @@
 <!--
   One exercise of the session in progress, on the logging screen: its name,
-  program targets and sets, with the buttons to log, edit and delete sets.
+  program targets, what was done on it last time and its sets, with the
+  buttons to log, edit and delete sets.
 
   The set calls go through useCurrentWorkout, whose state is shared, so the
   card changes the session directly instead of emitting events to the page.
@@ -21,6 +22,21 @@ const props = defineProps<{
 
 const { addSet, updateSet, removeSet } = useCurrentWorkout()
 const toast = useToast()
+
+// Last finished session with this exercise, for the reminder and the prefill.
+// Lazy: the card shows at once and the reminder fills in when it arrives,
+// since it is a hint, not something the logging must wait for. Keyed by
+// exercise, so two cards of the same exercise share one request.
+const { data: lastData } = useFetch(() => `/api/exercises/${props.item.exerciseId}/last`, {
+  key: `exercise-last-${props.item.exerciseId}`,
+  lazy: true,
+})
+const last = computed(() => lastData.value?.last ?? null)
+
+/** Date of the last session, e.g. "lun. 27 oct.". */
+const lastDate = computed(() => last.value
+  ? new Date(last.value.startedAt).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+  : '')
 
 /**
  * Formats the targets as "3 × 8–12", with a single number when the range is
@@ -53,11 +69,14 @@ const editedSet = ref<WorkoutSet | null>(null)
 /**
  * Values the modal opens with. When editing, the set itself. When logging,
  * a copy of the previous set of the exercise, since most sets repeat the
- * same load; for the first set, the low end of the planned rep range and no
- * weight (the user must type it).
+ * same load. For the first set, the first work set of last time (warm-ups
+ * are skipped: they would prefill a load far below the real one), else the
+ * low end of the planned rep range and no weight (the user must type it).
  */
 const modalInitial = computed(() => {
-  const source = editedSet.value ?? props.item.sets.at(-1)
+  const source = editedSet.value
+    ?? props.item.sets.at(-1)
+    ?? last.value?.sets.find(s => s.type === 'normal')
   if (source) return { weightKg: source.weightKg, reps: source.reps, rpe: source.rpe, type: source.type }
   return { reps: props.plan?.repMin }
 })
@@ -123,6 +142,12 @@ function onRemove() {
         <template v-if="plan">
           · Objectif {{ formatTarget(plan) }}
         </template>
+      </p>
+      <!-- Warm-ups are left out: the point is to know which load to beat. -->
+      <p v-if="last" class="mt-1 text-xs text-muted">
+        <UIcon name="i-lucide-history" class="size-3 align-[-1px]" />
+        {{ lastDate }} :
+        {{ last.sets.filter(s => s.type !== 'warmup').map(s => `${formatWeight(s.weightKg)} × ${s.reps}`).join(' · ') }}
       </p>
     </header>
 
