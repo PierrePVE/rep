@@ -2,6 +2,8 @@
  * GET /api/stats/dashboard: the figures of the home page.
  *
  * Returns: {
+ *   today — today as "YYYY-MM-DD", Paris time: the page uses this one rather
+ *     than the browser's clock, so its calendar agrees with the server's days,
  *   current: { id, name, startedAt } | null — the session in progress, to
  *     offer resuming it,
  *   week: { sessions, goal } — finished sessions this week (Monday to
@@ -64,6 +66,7 @@ export default defineEventHandler(async (event) => {
   const prs = recentPrs(allSets, since).slice(0, MAX_RECENT_PRS)
 
   return {
+    today,
     current: currentRows[0] ?? null,
     week: { sessions: weekSessions, goal: WEEKLY_SESSION_GOAL },
     streak: weekStreak(days.map(d => d.day), today),
