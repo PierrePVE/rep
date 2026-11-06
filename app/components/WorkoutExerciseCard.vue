@@ -31,7 +31,8 @@ const { addSet, updateSet, removeSet, removeExercise } = props.editor
 const toast = useToast()
 const restTimer = useRestTimer()
 
-// Last finished session with this exercise, for the reminder and the prefill.
+// Last finished session with this exercise and its records to beat, for the
+// reminders and the prefill.
 // Lazy: the card shows at once and the reminder fills in when it arrives,
 // since it is a hint, not something the logging must wait for. Keyed by
 // exercise, so two cards of the same exercise share one request.
@@ -42,6 +43,23 @@ const { data: lastData } = useFetch(() => `/api/exercises/${props.item.exerciseI
   immediate: props.live,
 })
 const last = computed(() => (props.live ? lastData.value?.last ?? null : null))
+const records = computed(() => (props.live ? lastData.value?.records ?? null : null))
+
+/**
+ * Records to beat, e.g. "Record 90 kg · 1RM 107,7 kg", or the best reps for
+ * a bodyweight exercise. Empty when there is none yet.
+ */
+const recordsText = computed(() => {
+  const r = records.value
+  if (!r) return ''
+  if (r.maxWeight) {
+    return r.e1rm
+      ? `Record ${formatWeight(r.maxWeight.weightKg)} · 1RM ${formatWeight(r.e1rm.value)}`
+      : `Record ${formatWeight(r.maxWeight.weightKg)}`
+  }
+  const best = r.repMaxes[0]
+  return best ? `Record ${best.reps} reps (${formatWeight(best.weightKg)})` : ''
+})
 
 /** Date of the last session, e.g. "lun. 27 oct.". */
 const lastDate = computed(() => last.value ? formatDay(last.value.startedAt) : '')
@@ -178,6 +196,10 @@ function onRemove() {
         <UIcon name="i-lucide-history" class="size-3 align-[-1px]" />
         {{ lastDate }} :
         {{ last.sets.filter(s => s.type !== 'warmup').map(s => `${formatWeight(s.weightKg)} × ${s.reps}`).join(' · ') }}
+      </p>
+      <p v-if="recordsText" class="text-xs text-muted">
+        <UIcon name="i-lucide-trophy" class="size-3 align-[-1px]" />
+        {{ recordsText }}
       </p>
     </header>
 

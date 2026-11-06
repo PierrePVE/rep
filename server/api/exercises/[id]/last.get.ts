@@ -5,15 +5,18 @@
  * "Last time" = the most recent FINISHED session containing the exercise. The
  * session in progress is left out on purpose: once a first set is logged, the
  * reminder would otherwise show today's sets instead of the previous session.
- * Returns: { last: { workoutId, startedAt, sets } }, the sets in session order
- * (exercise position, then set position; an exercise done twice in the same
- * session gives the sets of both), or { last: null } if the exercise was
- * never done. A 200 in both cases: a new exercise has no history, that is
- * not an error.
+ * Returns: { last, records }.
+ * - last: { workoutId, startedAt, sets }, the sets in session order (exercise
+ *   position, then set position; an exercise done twice in the same session
+ *   gives the sets of both), or null if the exercise was never done. A 200
+ *   either way: a new exercise has no history, that is not an error.
+ * - records: the records to beat (see exerciseRecords), from every session
+ *   but the one in progress, for the same reason as above: the records shown
+ *   must not move while the user is trying to beat them.
  * Errors: 401 if not logged in, 400 if :id is invalid, 404 if the exercise
  * does not exist or belongs to another user.
  */
-import { and, asc, desc, eq, isNotNull } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, isNull } from 'drizzle-orm'
 import { sets, workoutExercises, workouts } from '../../../db/schema'
 
 export default defineEventHandler(async (event) => {
@@ -34,7 +37,16 @@ export default defineEventHandler(async (event) => {
     ))
     .orderBy(desc(workouts.startedAt))
     .limit(1)
-  if (!workout) return { last: null }
+
+  // Records from all the sets but those of the session in progress.
+  const [current] = await db
+    .select({ id: workouts.id })
+    .from(workouts)
+    .where(and(eq(workouts.userId, user.id), isNull(workouts.endedAt)))
+  const history = (await loadExerciseSets(user.id, id)).filter(s => s.workoutId !== current?.id)
+  const records = exerciseRecords(history)
+
+  if (!workout) return { last: null, records }
 
   const lastSets = await db
     .select({
@@ -52,5 +64,5 @@ export default defineEventHandler(async (event) => {
     ))
     .orderBy(asc(workoutExercises.position), asc(sets.position))
 
-  return { last: { workoutId: workout.id, startedAt: workout.startedAt, sets: lastSets } }
+  return { last: { workoutId: workout.id, startedAt: workout.startedAt, sets: lastSets }, records }
 })
