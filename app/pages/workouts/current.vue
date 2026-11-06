@@ -76,31 +76,7 @@ onMounted(restTimer.restoreSetting)
 
 // --- Adding an exercise ---
 
-// The catalogue for the picker. Lazy and client-only: only needed once the
-// user opens the modal, and the logging screen must not wait for it.
-const { data: catalogue } = useFetch('/api/exercises', { lazy: true, server: false, default: () => [] })
-
 const addOpen = ref(false)
-const addedExerciseId = ref<number | undefined>(undefined)
-const adding = ref(false)
-
-/** Opens the picker, cleared of the exercise picked last time. */
-function openAdd() {
-  addedExerciseId.value = undefined
-  addOpen.value = true
-}
-
-/**
- * Adds the picked exercise at the end of the session. Not optimistic (see
- * addExercise), so the modal stays open with a spinner until it is saved; on
- * failure the composable shows a toast and the modal stays open to retry.
- */
-async function onAddExercise() {
-  if (addedExerciseId.value === undefined) return
-  adding.value = true
-  if (await addExercise(addedExerciseId.value)) addOpen.value = false
-  adding.value = false
-}
 
 // Finishing is a two-step click, as for deletions elsewhere: a stray tap must
 // not close the session in the middle of training.
@@ -222,32 +198,10 @@ async function onFinish() {
         color="neutral"
         variant="subtle"
         block
-        @click="openAdd"
+        @click="addOpen = true"
       />
 
-      <UModal v-model:open="addOpen" title="Ajouter un exercice">
-        <template #body>
-          <div class="space-y-4">
-            <!-- Searchable: the catalogue holds dozens of exercises. -->
-            <USelectMenu
-              v-model="addedExerciseId"
-              :items="catalogue"
-              value-key="id"
-              label-key="name"
-              placeholder="Choisir un exercice"
-              :search-input="{ placeholder: 'Rechercher…' }"
-              class="w-full"
-            />
-            <UButton
-              label="Ajouter"
-              block
-              :disabled="addedExerciseId === undefined"
-              :loading="adding"
-              @click="onAddExercise"
-            />
-          </div>
-        </template>
-      </UModal>
+      <AddExerciseModal v-model:open="addOpen" :add="addExercise" />
 
       <UButton
         :label="finishArmed ? 'Confirmer la fin de la séance' : 'Terminer la séance'"
