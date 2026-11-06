@@ -62,5 +62,20 @@ async function createProgram(name: string) {
     >
       <UButton label="Créer un programme" icon="i-lucide-plus" color="neutral" variant="subtle" />
     </NameModal>
+
+    <!-- The exercise library has no tab of its own (the bar keeps 4 tabs):
+         it lives here, next to the programs that use its exercises. -->
+    <NuxtLink to="/exercises" class="flex items-center gap-3 rounded-lg border border-default p-3">
+      <UIcon name="i-lucide-library" class="size-5 text-primary" />
+      <div class="min-w-0 flex-1">
+        <p class="font-medium">
+          Bibliothèque d'exercices
+        </p>
+        <p class="text-sm text-muted">
+          Créer, modifier ou archiver tes exercices, voir leurs records
+        </p>
+      </div>
+      <UIcon name="i-lucide-chevron-right" class="size-5 text-muted" />
+    </NuxtLink>
   </div>
 </template>

@@ -20,6 +20,7 @@ const accountItems = computed<DropdownMenuItem[][]>(() => [
     ...(user.value?.role === 'admin'
       ? [{ label: 'Administration', icon: 'i-lucide-shield', to: '/admin' }]
       : []),
+    { label: 'Bibliothèque d\'exercices', icon: 'i-lucide-library', to: '/exercises' },
     { label: 'Se déconnecter', icon: 'i-lucide-log-out', onSelect: logout },
   ],
 ])
@@ -48,10 +49,11 @@ const route = useRoute()
  * We don't rely on NuxtLink's active classes: "/" is a prefix of every path,
  * and "/workouts" is a prefix of "/workouts/current", so several tabs would
  * light up at once. Instead the longest tab route that prefixes the current
- * path wins (so "/workouts/42" still highlights "Historique").
+ * path wins (so "/workouts/42" still highlights "Historique"). The exercise
+ * pages have no tab: they belong with the programs, where they are linked.
  */
 const activeTab = computed(() => {
-  const path = route.path
+  const path = route.path.startsWith('/exercises') ? '/programs' : route.path
   const matches = tabs.filter(tab =>
     tab.to === '/' ? path === '/' : path === tab.to || path.startsWith(`${tab.to}/`),
   )
